@@ -174,7 +174,7 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
 
         if now - lastRealtimeUpdate >= realtimeInterval {
             lastRealtimeUpdate = now
-            let thumb = fullImage.resized(to: CGSize(width: 200, height: 150))
+            let thumb = fullImage.resizedFit(maxDimension: 200) ?? fullImage
             Task { @MainActor [weak self] in self?.realtimeImage = thumb }
         }
 

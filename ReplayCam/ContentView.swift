@@ -83,13 +83,15 @@ struct ContentView: View {
         VStack(spacing: 8) {
             Group {
                 if let img = camera.realtimeImage {
-                    Image(uiImage: img).resizable().scaledToFill()
+                    Image(uiImage: img)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: 200, maxHeight: 200)
                 } else {
                     Color.gray.overlay(ProgressView().tint(.white))
+                        .frame(width: 200, height: 150)
                 }
             }
-            .frame(width: 200, height: 150)
-            .clipped()
             .cornerRadius(12)
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.yellow, lineWidth: 3))
             .shadow(color: .black.opacity(0.5), radius: 10)

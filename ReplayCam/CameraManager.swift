@@ -182,8 +182,9 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
         if now - lastRealtimeUpdate >= realtimeInterval {
             lastRealtimeUpdate = now
             let extent = ciImage.extent
-            let scale  = 200.0 / max(extent.width, extent.height)
-            let small  = ciImage.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+            // 600 px covers 3× Retina on a 200 pt preview window without noticeable lag
+            let scale = 600.0 / max(extent.width, extent.height)
+            let small = ciImage.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
             if let cg = ciContext.createCGImage(small, from: small.extent) {
                 let thumb = UIImage(cgImage: cg)
                 Task { @MainActor [weak self] in self?.realtimeImage = thumb }

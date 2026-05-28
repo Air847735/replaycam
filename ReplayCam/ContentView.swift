@@ -39,16 +39,18 @@ struct ContentView: View {
 
     @ViewBuilder
     private func delayedBackground(size: CGSize) -> some View {
-        Group {
+        ZStack {
+            Color.black.ignoresSafeArea()
             if let img = camera.delayedImage {
-                Image(uiImage: img).resizable().scaledToFill()
+                Image(uiImage: img)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: size.width, height: size.height)
             } else {
                 cameraPlaceholder
+                    .frame(width: size.width, height: size.height)
             }
         }
-        .frame(width: size.width, height: size.height)
-        .clipped()
-        .ignoresSafeArea()
     }
 
     private var cameraPlaceholder: some View {

@@ -183,7 +183,7 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
             let target = now - delaySeconds
             if let frame = frameBuffer.findFrame(nearTimestamp: target),
                let delayed = UIImage(data: frame.jpegData)?
-                .resized(to: CGSize(width: 540, height: 960)) {
+                .resizedFit(maxDimension: 1080) {
                 Task { @MainActor [weak self] in self?.delayedImage = delayed }
             }
         }

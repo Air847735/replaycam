@@ -2,6 +2,15 @@ import UIKit
 import CoreVideo
 
 extension UIImage {
+    /// Resize while preserving aspect ratio, fitting within `maxDimension` on the longest side.
+    func resizedFit(maxDimension: CGFloat) -> UIImage? {
+        let longest = max(size.width, size.height)
+        guard longest > maxDimension else { return self }
+        let scale = maxDimension / longest
+        return resized(to: CGSize(width: (size.width * scale).rounded(),
+                                  height: (size.height * scale).rounded()))
+    }
+
     func resized(to size: CGSize) -> UIImage {
         UIGraphicsImageRenderer(size: size).image { _ in
             draw(in: CGRect(origin: .zero, size: size))

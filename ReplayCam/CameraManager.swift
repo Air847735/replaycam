@@ -23,6 +23,8 @@ final class CameraManager: NSObject, ObservableObject {
     nonisolated(unsafe) private var lastRealtimeUpdate: TimeInterval = 0
     nonisolated(unsafe) private var lastDelayedUpdate: TimeInterval = 0
     nonisolated(unsafe) var delaySeconds: Double = 3.0
+    // Written once from sessionQueue during setup, read from main thread — safe in practice.
+    nonisolated(unsafe) private var videoConnection: AVCaptureConnection?
 
     private let realtimeInterval: TimeInterval = 1.0 / 15.0
     private let delayedInterval: TimeInterval = 1.0 / 25.0
@@ -30,6 +32,7 @@ final class CameraManager: NSObject, ObservableObject {
     private let frameQueue = DispatchQueue(label: "com.replaycam.frames", qos: .userInteractive)
     private var captureSession: AVCaptureSession?
     private var bufferTimer: AnyCancellable?
+    private var orientationObserver: NSObjectProtocol?
 
     // MARK: - Public API
 
@@ -107,7 +110,8 @@ final class CameraManager: NSObject, ObservableObject {
             session.addOutput(output)
 
             if let conn = output.connection(with: .video), conn.isVideoOrientationSupported {
-                conn.videoOrientation = .portrait
+                self.videoConnection = conn
+                conn.videoOrientation = self.avOrientation(for: UIDevice.current.orientation)
             }
 
             session.commitConfiguration()
@@ -117,6 +121,18 @@ final class CameraManager: NSObject, ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.isRunning = true
+                UIDevice.current.beginGeneratingDeviceOrientationNotifications()
+                self.orientationObserver = NotificationCenter.default.addObserver(
+                    forName: UIDevice.orientationDidChangeNotification,
+                    object: nil,
+                    queue: .main
+                ) { [weak self] _ in
+                    guard let self, let conn = self.videoConnection else { return }
+                    let o = UIDevice.current.orientation
+                    if o.isValidInterfaceOrientation {
+                        conn.videoOrientation = self.avOrientation(for: o)
+                    }
+                }
                 self.bufferTimer = Timer.publish(every: 0.5, on: .main, in: .common)
                     .autoconnect()
                     .sink { [weak self] _ in
@@ -125,6 +141,15 @@ final class CameraManager: NSObject, ObservableObject {
                         self.bufferDuration = self.frameBuffer.duration
                     }
             }
+        }
+    }
+
+    private func avOrientation(for deviceOrientation: UIDeviceOrientation) -> AVCaptureVideoOrientation {
+        switch deviceOrientation {
+        case .landscapeLeft:       return .landscapeRight
+        case .landscapeRight:      return .landscapeLeft
+        case .portraitUpsideDown:  return .portraitUpsideDown
+        default:                   return .portrait
         }
     }
 }

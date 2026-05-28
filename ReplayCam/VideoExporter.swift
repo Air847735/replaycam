@@ -3,9 +3,14 @@ import Photos
 import UIKit
 
 enum VideoExporter {
-    static let exportSize = CGSize(width: 1080, height: 1920)
+    private static let portraitSize  = CGSize(width: 1080, height: 1920)
+    private static let landscapeSize = CGSize(width: 1920, height: 1080)
 
     static func export(frames: [TimestampedFrame]) async throws -> URL {
+        // Auto-detect orientation from the first stored frame
+        let firstSize = UIImage(data: frames[0].jpegData)?.size ?? CGSize(width: 1080, height: 1920)
+        let exportSize = firstSize.width > firstSize.height ? landscapeSize : portraitSize
+
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("replay_\(Int(Date().timeIntervalSince1970)).mp4")
         try? FileManager.default.removeItem(at: url)

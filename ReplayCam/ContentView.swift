@@ -5,6 +5,10 @@ struct ContentView: View {
     @State private var selectedDelay: Double = 3.0
     @State private var showSaveOptions = false
 
+    // Draggable preview state
+    @State private var previewOffset: CGSize = .zero
+    @GestureState private var dragLive: CGSize = .zero
+
     private let delayOptions = [1.0, 3.0, 5.0, 10.0, 15.0, 30.0]
     private let saveOptions = [5.0, 10.0, 15.0, 30.0]
 
@@ -12,7 +16,24 @@ struct ContentView: View {
         GeometryReader { geo in
             ZStack {
                 delayedBackground(size: geo.size)
-                overlayControls
+                controls
+                realtimePreview
+                    .offset(
+                        x: previewOffset.width + dragLive.width,
+                        y: previewOffset.height + dragLive.height
+                    )
+                    .gesture(
+                        DragGesture()
+                            .updating($dragLive) { value, state, _ in
+                                state = value.translation
+                            }
+                            .onEnded { value in
+                                previewOffset.width  += value.translation.width
+                                previewOffset.height += value.translation.height
+                            }
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity,
+                           alignment: .bottomTrailing)
             }
         }
         .ignoresSafeArea()
@@ -71,14 +92,15 @@ struct ContentView: View {
         )
     }
 
-    private var overlayControls: some View {
+    /// 底部控制列（不含即時視窗）
+    private var controls: some View {
         VStack {
             Spacer()
-            HStack { Spacer(); realtimePreview }
             controlPanel
         }
     }
 
+    /// 可拖曳的即時視窗（獨立在 ZStack 中，預設右下角）
     private var realtimePreview: some View {
         VStack(spacing: 8) {
             Group {

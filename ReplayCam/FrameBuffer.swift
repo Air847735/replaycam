@@ -5,6 +5,7 @@ final class FrameBuffer: @unchecked Sendable {
     private var frames: [TimestampedFrame] = []
     private let lock = NSLock()
     private let maxDuration: TimeInterval = 35.0
+    private var appendCount = 0
 
     var count: Int {
         lock.withLock { frames.count }
@@ -18,11 +19,18 @@ final class FrameBuffer: @unchecked Sendable {
     }
 
     func append(_ frame: TimestampedFrame) {
-        let cutoff = frame.timestamp - maxDuration
         lock.withLock {
             frames.append(frame)
-            if frames.count > 1200 {
-                frames.removeAll { $0.timestamp < cutoff }
+            appendCount += 1
+            // Purge old frames ~once per second (every 30 appends) or when count is very high.
+            // Frames are time-ordered, so binary-search for cutoff is safe.
+            if appendCount % 30 == 0 || frames.count > 1200 {
+                let cutoff = frame.timestamp - maxDuration
+                if let idx = frames.firstIndex(where: { $0.timestamp >= cutoff }), idx > 0 {
+                    frames.removeFirst(idx)
+                } else if frames.first.map({ $0.timestamp < cutoff }) == true {
+                    frames.removeAll()
+                }
             }
         }
     }

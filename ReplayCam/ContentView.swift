@@ -39,18 +39,18 @@ struct ContentView: View {
 
     @ViewBuilder
     private func delayedBackground(size: CGSize) -> some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
+        Group {
             if let img = camera.delayedImage {
                 Image(uiImage: img)
                     .resizable()
-                    .scaledToFit()
-                    .frame(width: size.width, height: size.height)
+                    .scaledToFill()
             } else {
                 cameraPlaceholder
-                    .frame(width: size.width, height: size.height)
             }
         }
+        .frame(width: size.width, height: size.height)
+        .clipped()
+        .ignoresSafeArea()
     }
 
     private var cameraPlaceholder: some View {
@@ -83,10 +83,13 @@ struct ContentView: View {
         VStack(spacing: 8) {
             Group {
                 if let img = camera.realtimeImage {
+                    let portrait = img.size.height > img.size.width
                     Image(uiImage: img)
                         .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: 200, maxHeight: 200)
+                        .scaledToFill()
+                        .frame(width:  portrait ? 112 : 200,
+                               height: portrait ? 200 : 150)
+                        .clipped()
                 } else {
                     Color.gray.overlay(ProgressView().tint(.white))
                         .frame(width: 200, height: 150)

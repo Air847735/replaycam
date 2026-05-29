@@ -19,6 +19,7 @@ final class CameraManager: NSObject, ObservableObject {
     nonisolated(unsafe) private var lastDelayedUpdate: TimeInterval = 0
     nonisolated(unsafe) var delaySeconds: Double = 3.0
     nonisolated(unsafe) private var videoConnection: AVCaptureConnection?
+    nonisolated(unsafe) private var frameCount = 0   // used for periodic cache flush
 
     // JPEG quality key for CIContext
     private static let jpegQualityKey = CIImageRepresentationOption(
@@ -169,38 +170,45 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
         let colorSpace = CGColorSpaceCreateDeviceRGB()
 
         // ── Buffer storage ──────────────────────────────────────────────────
-        // CIImage → JPEG directly: skips the expensive CGImage intermediate.
         guard let jpeg = ciContext.jpegRepresentation(
             of: ciImage, colorSpace: colorSpace,
             options: [Self.jpegQualityKey: 0.55]
         ) else { return }
         frameBuffer.append(TimestampedFrame(jpegData: jpeg, timestamp: now))
 
+        // Flush GPU/CPU caches every 300 frames (~10 s) to prevent memory creep
+        frameCount += 1
+        if frameCount % 300 == 0 {
+            ciContext.clearCaches()
+        }
+
         // ── Realtime preview (throttled 15 fps) ─────────────────────────────
-        // Scale CIImage first, then render small CGImage — much cheaper than
-        // rendering at full resolution and resizing the UIImage afterward.
         if now - lastRealtimeUpdate >= realtimeInterval {
             lastRealtimeUpdate = now
-            let extent = ciImage.extent
-            // 600 px covers 3× Retina on a 200 pt preview window without noticeable lag
-            let scale = 600.0 / max(extent.width, extent.height)
-            let small = ciImage.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
-            if let cg = ciContext.createCGImage(small, from: small.extent) {
-                let thumb = UIImage(cgImage: cg)
-                Task { @MainActor [weak self] in self?.realtimeImage = thumb }
+            autoreleasepool {
+                let extent = ciImage.extent
+                let scale = 600.0 / max(extent.width, extent.height)
+                let small = ciImage.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+                if let cg = ciContext.createCGImage(small, from: small.extent) {
+                    let thumb = UIImage(cgImage: cg)
+                    Task { @MainActor [weak self] in self?.realtimeImage = thumb }
+                }
             }
         }
 
         // ── Delayed preview (throttled 25 fps) ──────────────────────────────
         // Offload JPEG decode + resize to decodeQueue so frameQueue stays free.
+        // autoreleasepool releases the intermediate full-res UIImage promptly.
         if now - lastDelayedUpdate >= delayedInterval {
             lastDelayedUpdate = now
             let target = now - delaySeconds
             if let frame = frameBuffer.findFrame(nearTimestamp: target) {
                 decodeQueue.async { [weak self] in
                     guard let self else { return }
-                    if let delayed = UIImage(data: frame.jpegData)?.resizedFit(maxDimension: 960) {
-                        Task { @MainActor in self.delayedImage = delayed }
+                    autoreleasepool {
+                        if let delayed = UIImage(data: frame.jpegData)?.resizedFit(maxDimension: 960) {
+                            Task { @MainActor in self.delayedImage = delayed }
+                        }
                     }
                 }
             }

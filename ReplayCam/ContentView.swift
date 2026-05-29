@@ -5,9 +5,10 @@ struct ContentView: View {
     @State private var selectedDelay: Double = 3.0
     @State private var showSaveOptions = false
 
-    // Draggable preview state
-    @State private var previewOffset: CGSize = .zero
-    @GestureState private var dragLive: CGSize = .zero
+    // Draggable preview: base position (nil = default bottom-right)
+    @State private var previewBase: CGPoint? = nil
+    // Live translation while finger is down; auto-resets to .zero on release
+    @GestureState private var dragTranslation: CGSize = .zero
 
     private let delayOptions = [1.0, 3.0, 5.0, 10.0, 15.0, 30.0]
     private let saveOptions = [5.0, 10.0, 15.0, 30.0]
@@ -17,23 +18,33 @@ struct ContentView: View {
             ZStack {
                 delayedBackground(size: geo.size)
                 controls
+                let base = previewBase ?? defaultPreviewPos(in: geo.size)
+                let livePos = clampPreview(
+                    CGPoint(x: base.x + dragTranslation.width,
+                            y: base.y + dragTranslation.height),
+                    in: geo.size
+                )
                 realtimePreview
-                    .offset(
-                        x: previewOffset.width + dragLive.width,
-                        y: previewOffset.height + dragLive.height
-                    )
+                    .position(livePos)
                     .gesture(
                         DragGesture()
-                            .updating($dragLive) { value, state, _ in
+                            .updating($dragTranslation) { value, state, _ in
                                 state = value.translation
                             }
                             .onEnded { value in
-                                previewOffset.width  += value.translation.width
-                                previewOffset.height += value.translation.height
+                                previewBase = clampPreview(
+                                    CGPoint(x: base.x + value.translation.width,
+                                            y: base.y + value.translation.height),
+                                    in: geo.size
+                                )
                             }
                     )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity,
-                           alignment: .bottomTrailing)
+                    .onChange(of: geo.size) { _, newSize in
+                        // Re-clamp after device rotation
+                        if let current = previewBase {
+                            previewBase = clampPreview(current, in: newSize)
+                        }
+                    }
             }
         }
         .ignoresSafeArea()
@@ -54,6 +65,21 @@ struct ContentView: View {
         } message: {
             Text("影片已成功儲存到相簿")
         }
+    }
+
+    // MARK: - Preview positioning
+
+    /// Default centre position: bottom-right corner, clear of the control panel.
+    private func defaultPreviewPos(in size: CGSize) -> CGPoint {
+        CGPoint(x: size.width - 130, y: size.height - 210)
+    }
+
+    /// Keep the preview centre at least 80 pt from every edge.
+    private func clampPreview(_ point: CGPoint, in size: CGSize) -> CGPoint {
+        CGPoint(
+            x: min(max(point.x, 80), size.width  - 80),
+            y: min(max(point.y, 80), size.height - 80)
+        )
     }
 
     // MARK: - Subviews

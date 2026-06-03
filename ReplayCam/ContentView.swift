@@ -2,10 +2,11 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var camera = CameraManager()
-    @State private var selectedDelay: Double = 3.0
+    @AppStorage("defaultDelay") private var selectedDelay: Double = 3.0
     @State private var saveDuration: Double = 10.0
 
     @State private var controlsVisible = true
+    @Environment(\.dismiss) private var dismiss
 
     // Draggable + resizable preview
     @State private var previewBase: CGPoint? = nil
@@ -28,6 +29,25 @@ struct ContentView: View {
                             controlsVisible.toggle()
                         }
                     }
+
+                // ── Back button (top-left, shown with controls) ─────────────
+                if controlsVisible {
+                    VStack {
+                        HStack {
+                            Button { dismiss() } label: {
+                                Image(systemName: "chevron.left")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .padding(10)
+                                    .background(.ultraThinMaterial, in: Circle())
+                            }
+                            .padding(.leading, 20)
+                            .padding(.top, 56)
+                            Spacer()
+                        }
+                        Spacer()
+                    }
+                }
 
                 // ── Collapsed hint ──────────────────────────────────────────
                 if !controlsVisible {

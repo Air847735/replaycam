@@ -35,7 +35,7 @@ struct PlayerView: View {
 
     private var overlayControls: some View {
         VStack {
-            // Top: close only
+            // Top: close (left) + export (right)
             HStack {
                 Button {
                     player.pause()
@@ -46,36 +46,35 @@ struct PlayerView: View {
                         .foregroundStyle(.white, Color.black.opacity(0.4))
                         .shadow(color: .black.opacity(0.4), radius: 4)
                 }
+
                 Spacer()
+
+                ShareLink(
+                    item: url,
+                    preview: SharePreview("影片片段", icon: Image(systemName: "film"))
+                ) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("匯出")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .shadow(color: .black.opacity(0.3), radius: 4)
+                }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 16)
             .padding(.top, 56)
 
             Spacer()
 
-            // Bottom: speed + export
-            VStack(spacing: 12) {
-                speedPicker
-
-                ShareLink(
-                    item: url,
-                    preview: SharePreview("影片片段", icon: Image(systemName: "film"))
-                ) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 15, weight: .semibold))
-                        Text("匯出影片")
-                            .font(.system(size: 15, weight: .semibold))
-                    }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 13)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
-                }
-                .buttonStyle(.plain)
-                .padding(.horizontal, 20)
-            }
-            .padding(.bottom, 48)
+            // Bottom: speed picker only
+            speedPicker
+                .padding(.bottom, 48)
         }
     }
 

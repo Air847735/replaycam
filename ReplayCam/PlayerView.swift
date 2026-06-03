@@ -340,12 +340,13 @@ struct ThumbnailScrubber: View {
         return model.thumbnails[idx.clamped(to: 0...(model.thumbnails.count - 1))]
     }
 
-    // Keep the popup inside screen bounds
+    // Popup sits in a ZStack whose natural centre is width/2.
+    // We want the popup centre to follow dragX, so offset = dragX - width/2.
+    // Clamp so the popup never clips outside the scrubber strip.
     private func previewOffsetX(in width: CGFloat) -> CGFloat {
-        let progress = model.duration > 0 ? model.currentTime / model.duration : 0
-        let center = CGFloat(progress) * width
-        let popupHalf: CGFloat = 44
-        return (center - popupHalf).clamped(to: 0...(width - popupHalf * 2))
+        let popupHalfWidth: CGFloat = 30          // ~54 pt wide at height 96, half = 27; use 30 as safe margin
+        let clampedX = dragX.clamped(to: popupHalfWidth...(width - popupHalfWidth))
+        return clampedX - width / 2
     }
 }
 

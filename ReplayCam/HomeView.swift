@@ -7,14 +7,20 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // ── Background: dark base + TISS pattern overlay ────────────
-                Color(white: 0.04)
-                    .ignoresSafeArea()
+                // ── Background: TISS brand gradient + pattern overlay ───────
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.04, green: 0.16, blue: 0.30),  // deep navy
+                        Color(red: 0.02, green: 0.22, blue: 0.22)   // deep teal
+                    ],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
 
                 Image("tiss_pattern")
                     .resizable(resizingMode: .tile)
                     .ignoresSafeArea()
-                    .opacity(0.07)
+                    .opacity(0.13)
 
                 // ── Content ─────────────────────────────────────────────────
                 VStack(alignment: .leading, spacing: 24) {

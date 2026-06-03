@@ -7,7 +7,8 @@ struct ClipCell: View {
     @State private var thumbnail: UIImage?
 
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
+        ZStack {
+            // Thumbnail
             Group {
                 if let thumb = thumbnail {
                     Image(uiImage: thumb)
@@ -21,12 +22,43 @@ struct ClipCell: View {
             .aspectRatio(9/16, contentMode: .fit)
             .clipped()
 
-            Text(clip.date.formatted(.dateTime.hour().minute()))
-                .font(.system(size: 10, weight: .medium))
-                .foregroundColor(.white)
-                .padding(.horizontal, 5).padding(.vertical, 2)
-                .background(Color.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 3))
-                .padding(5)
+            // Top-right: share button
+            VStack {
+                HStack {
+                    Spacer()
+                    ShareLink(
+                        item: clip.url,
+                        preview: SharePreview(
+                            clip.date.formatted(.dateTime.month().day().hour().minute()),
+                            icon: Image(systemName: "film")
+                        )
+                    ) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.white)
+                            .padding(7)
+                            .background(Color.black.opacity(0.5), in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(6)
+                }
+                Spacer()
+            }
+
+            // Bottom-right: time label
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    Text(clip.date.formatted(.dateTime.hour().minute()))
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 5).padding(.vertical, 2)
+                        .background(Color.black.opacity(0.55),
+                                    in: RoundedRectangle(cornerRadius: 3))
+                        .padding(5)
+                }
+            }
         }
         .task { thumbnail = await makeThumbnail(for: clip.url) }
     }

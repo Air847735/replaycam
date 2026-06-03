@@ -35,7 +35,7 @@ struct PlayerView: View {
 
     private var overlayControls: some View {
         VStack {
-            // Top: close + export
+            // Top: close only
             HStack {
                 Button {
                     player.pause()
@@ -46,27 +46,36 @@ struct PlayerView: View {
                         .foregroundStyle(.white, Color.black.opacity(0.4))
                         .shadow(color: .black.opacity(0.4), radius: 4)
                 }
-
                 Spacer()
-
-                ShareLink(
-                    item: url,
-                    preview: SharePreview("影片片段", icon: Image(systemName: "film"))
-                ) {
-                    Image(systemName: "square.and.arrow.up.circle.fill")
-                        .font(.system(size: 30))
-                        .foregroundStyle(.white, Color.black.opacity(0.4))
-                        .shadow(color: .black.opacity(0.4), radius: 4)
-                }
             }
             .padding(.horizontal, 16)
             .padding(.top, 56)
 
             Spacer()
 
-            // Bottom: speed picker
-            speedPicker
-                .padding(.bottom, 48)
+            // Bottom: speed + export
+            VStack(spacing: 12) {
+                speedPicker
+
+                ShareLink(
+                    item: url,
+                    preview: SharePreview("影片片段", icon: Image(systemName: "film"))
+                ) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 15, weight: .semibold))
+                        Text("匯出影片")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 13)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 20)
+            }
+            .padding(.bottom, 48)
         }
     }
 

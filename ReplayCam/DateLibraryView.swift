@@ -154,8 +154,14 @@ struct DayDetailView: View {
     @State private var columnCount: Int = 3
     @GestureState private var pinchScale: CGFloat = 1.0
 
+    /// Live column count — updates continuously during pinch gesture
+    private var liveColumnCount: Int {
+        Int((CGFloat(columnCount) / pinchScale).rounded())
+            .clamped(to: 2...5)
+    }
+
     private var columns: [GridItem] {
-        Array(repeating: GridItem(.flexible(), spacing: 2), count: columnCount)
+        Array(repeating: GridItem(.flexible(), spacing: 2), count: liveColumnCount)
     }
 
     private var currentClips: [SavedClip] {
@@ -202,16 +208,9 @@ struct DayDetailView: View {
                 .gesture(
                     MagnificationGesture()
                         .updating($pinchScale) { value, state, _ in state = value }
-                        .onEnded { value in
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                if value > 1.25 {
-                                    columnCount = max(2, columnCount - 1)  // spread → fewer, bigger
-                                } else if value < 0.8 {
-                                    columnCount = min(5, columnCount + 1)  // pinch → more, smaller
-                                }
-                            }
-                        }
+                        .onEnded { _ in columnCount = liveColumnCount }
                 )
+                .animation(.spring(response: 0.2, dampingFraction: 0.75), value: liveColumnCount)
             }
         }
         .navigationTitle(group.displayDate)

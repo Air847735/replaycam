@@ -23,19 +23,22 @@ struct ClipCell: View {
 
     var body: some View {
         ZStack {
-            // Thumbnail
-            Group {
-                if let thumb = thumbnail {
-                    Image(uiImage: thumb)
-                        .resizable()
-                        .scaledToFill()
-                } else {
-                    Color(.systemGray5)
-                        .overlay(ProgressView().scaleEffect(0.7))
-                }
-            }
-            .aspectRatio(1, contentMode: .fit)
-            .clipped()
+            // Thumbnail — scaledToFit so landscape clips letterbox (black bars)
+            // rather than being cropped. All cells stay the same 1:1 size.
+            Color.black
+                .aspectRatio(1, contentMode: .fit)
+                .overlay(
+                    Group {
+                        if let thumb = thumbnail {
+                            Image(uiImage: thumb)
+                                .resizable()
+                                .scaledToFit()
+                        } else {
+                            ProgressView().scaleEffect(0.7).tint(.white)
+                        }
+                    }
+                )
+                .clipped()
 
             // Blue tint when selected
             if isSelected {

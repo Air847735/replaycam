@@ -123,12 +123,15 @@ final class PlayerModel: ObservableObject {
 struct PlayerView: View {
     let url: URL
     @StateObject private var model: PlayerModel
+    @ObservedObject private var store = ClipStore.shared
     @Environment(\.dismiss) private var dismiss
 
     init(url: URL) {
         self.url = url
         self._model = StateObject(wrappedValue: PlayerModel(url: url))
     }
+
+    private var clipForFav: SavedClip { SavedClip(url: url, date: Date()) }
 
     var body: some View {
         ZStack {
@@ -153,14 +156,35 @@ struct PlayerView: View {
     }
 
     private var topBar: some View {
-        HStack {
+        HStack(spacing: 12) {
+            // Close
             Button { model.player.pause(); dismiss() } label: {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 30))
                     .foregroundStyle(.white, Color.black.opacity(0.4))
                     .shadow(color: .black.opacity(0.4), radius: 4)
             }
+
             Spacer()
+
+            // Favourite
+            let fav = store.isFavorite(clipForFav)
+            Button {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
+                    store.toggleFavorite(clipForFav)
+                }
+            } label: {
+                Image(systemName: fav ? "star.fill" : "star")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(fav ? .yellow : .white)
+                    .scaleEffect(fav ? 1.15 : 1.0)
+                    .padding(10)
+                    .background(.ultraThinMaterial, in: Circle())
+                    .shadow(color: .black.opacity(0.3), radius: 4)
+            }
+            .buttonStyle(.plain)
+
+            // Export
             ShareLink(item: url, preview: SharePreview("影片片段", icon: Image(systemName: "film"))) {
                 HStack(spacing: 6) {
                     Image(systemName: "square.and.arrow.up").font(.system(size: 13, weight: .semibold))

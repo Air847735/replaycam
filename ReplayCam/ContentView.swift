@@ -14,7 +14,7 @@ struct ContentView: View {
     @State private var previewScale: CGFloat = 1.0
     @GestureState private var pinchDelta: CGFloat = 1.0
 
-    private let previewScaleRange: ClosedRange<CGFloat> = 0.5...3.0
+    private let previewScaleRange: ClosedRange<CGFloat> = 0.8...3.0
 
     private let saveRange: ClosedRange<Double> = 3...30
 
@@ -36,10 +36,11 @@ struct ContentView: View {
                         HStack {
                             Button { dismiss() } label: {
                                 Image(systemName: "chevron.left")
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(.system(size: 19, weight: .semibold))
                                     .foregroundColor(.white)
-                                    .padding(10)
+                                    .padding(14)
                                     .background(.ultraThinMaterial, in: Circle())
+                                    .shadow(color: .black.opacity(0.3), radius: 4)
                             }
                             .padding(.leading, 20)
                             .padding(.top, 56)

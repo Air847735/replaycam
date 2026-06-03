@@ -160,7 +160,7 @@ struct DayDetailView: View {
 
     // Multi-select
     @State private var isSelecting = false
-    @State private var selectedIDs: Set<UUID> = []
+    @State private var selectedIDs: Set<String> = []
     @State private var showShareSheet = false
     @State private var showDeleteConfirm = false
 

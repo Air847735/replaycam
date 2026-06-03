@@ -3,7 +3,9 @@ import Combine
 
 /// A single saved video clip stored in the app's Documents directory.
 struct SavedClip: Identifiable {
-    let id: UUID
+    /// Stable identity based on filename — survives ClipStore.refresh() calls
+    /// without causing SwiftUI to destroy and recreate existing cells.
+    var id: String { url.lastPathComponent }
     let url: URL
     let date: Date
 }
@@ -86,11 +88,7 @@ final class ClipStore: ObservableObject {
                 .filter { $0.pathExtension == "mp4" }
                 .compactMap { url -> SavedClip? in
                     let vals = try? url.resourceValues(forKeys: [.creationDateKey])
-                    return SavedClip(
-                        id: UUID(),
-                        url: url,
-                        date: vals?.creationDate ?? Date()
-                    )
+                    return SavedClip(url: url, date: vals?.creationDate ?? Date())
                 }
                 .sorted { $0.date > $1.date }
         }.value

@@ -1,9 +1,23 @@
 import SwiftUI
 import AVFoundation
 
-/// Shared thumbnail cell used by DateLibraryView / DayDetailView.
+// MARK: - Multi-file share sheet
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+    func updateUIViewController(_ vc: UIActivityViewController, context: Context) {}
+}
+
+// MARK: - Clip cell
+
 struct ClipCell: View {
     let clip: SavedClip
+    var isSelectMode: Bool = false
+    var isSelected:   Bool = false
+
     @ObservedObject private var store = ClipStore.shared
     @State private var thumbnail: UIImage?
 
@@ -23,25 +37,38 @@ struct ClipCell: View {
             .aspectRatio(9/16, contentMode: .fit)
             .clipped()
 
-            // Top-right: favourite button
+            // Blue tint when selected
+            if isSelected {
+                Color.blue.opacity(0.25)
+            }
+
+            // Top-right: checkmark (select mode) or star (normal)
             VStack {
                 HStack {
                     Spacer()
-                    let fav = store.isFavorite(clip)
-                    Button {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
-                            store.toggleFavorite(clip)
+                    if isSelectMode {
+                        Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundColor(isSelected ? .blue : .white.opacity(0.85))
+                            .shadow(color: .black.opacity(0.4), radius: 3)
+                            .padding(6)
+                    } else {
+                        let fav = store.isFavorite(clip)
+                        Button {
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
+                                store.toggleFavorite(clip)
+                            }
+                        } label: {
+                            Image(systemName: fav ? "star.fill" : "star")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(fav ? .yellow : .white)
+                                .padding(7)
+                                .background(Color.black.opacity(0.5), in: Circle())
+                                .scaleEffect(fav ? 1.15 : 1.0)
                         }
-                    } label: {
-                        Image(systemName: fav ? "heart.fill" : "heart")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(fav ? .red : .white)
-                            .padding(7)
-                            .background(Color.black.opacity(0.5), in: Circle())
-                            .scaleEffect(fav ? 1.15 : 1.0)
+                        .buttonStyle(.plain)
+                        .padding(6)
                     }
-                    .buttonStyle(.plain)
-                    .padding(6)
                 }
                 Spacer()
             }

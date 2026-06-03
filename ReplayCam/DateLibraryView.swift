@@ -205,7 +205,7 @@ struct DayDetailView: View {
                     }
                 }
                 // Pinch to change grid density (2–5 columns)
-                .gesture(
+                .simultaneousGesture(
                     MagnificationGesture()
                         .updating($pinchScale) { value, state, _ in state = value }
                         .onEnded { _ in columnCount = liveColumnCount }

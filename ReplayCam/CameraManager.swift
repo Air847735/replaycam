@@ -35,6 +35,7 @@ final class CameraManager: NSObject, ObservableObject {
     private var captureSession: AVCaptureSession?
     private var bufferTimer: AnyCancellable?
     private var orientationObserver: NSObjectProtocol?
+    private var memoryObserver: NSObjectProtocol?
 
     // MARK: - Public API
 
@@ -151,6 +152,15 @@ final class CameraManager: NSObject, ObservableObject {
                         self.bufferFrameCount = self.frameBuffer.count
                         self.bufferDuration   = self.frameBuffer.duration
                     }
+
+                // Trim buffer to last 15 s under memory pressure to avoid being killed
+                self.memoryObserver = NotificationCenter.default.addObserver(
+                    forName: UIApplication.didReceiveMemoryWarningNotification,
+                    object: nil, queue: .main
+                ) { [weak self] _ in
+                    self?.frameBuffer.trimToLastSeconds(15)
+                    self?.ciContext.clearCaches()
+                }
             }
         }
     }
@@ -182,7 +192,7 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
         // ── Buffer storage ──────────────────────────────────────────────────
         guard let jpeg = ciContext.jpegRepresentation(
             of: ciImage, colorSpace: colorSpace,
-            options: [Self.jpegQualityKey: 0.55]
+            options: [Self.jpegQualityKey: 0.45]
         ) else { return }
         frameBuffer.append(TimestampedFrame(jpegData: jpeg, timestamp: now))
 

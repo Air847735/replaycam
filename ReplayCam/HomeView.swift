@@ -25,30 +25,19 @@ struct HomeView: View {
                 // ── Content ─────────────────────────────────────────────────
                 VStack(alignment: .leading, spacing: 24) {
 
-                    // Header: app name + TISS logo
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("ReplayCam")
-                            .font(.system(size: 30, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
+                    // ── App name ───────────────────────────────────────────
+                    Text("ReplayCam")
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .padding(.top, 16)
 
-                        Image("tiss_logo")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(height: 20)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(Color.white.opacity(0.92),
-                                        in: RoundedRectangle(cornerRadius: 6))
-                    }
-                    .padding(.top, 16)
-
-                    // Camera card (large)
+                    // ── Camera card (large) ────────────────────────────────
                     Button { showCamera = true } label: {
                         cameraCard
                     }
                     .buttonStyle(.plain)
 
-                    // Library + Settings
+                    // ── Library + Settings ─────────────────────────────────
                     HStack(spacing: 16) {
                         NavigationLink(destination: DateLibraryView()) {
                             secondaryCard(
@@ -72,6 +61,21 @@ struct HomeView: View {
                     }
 
                     Spacer()
+
+                    // ── TISS Logo footer ───────────────────────────────────
+                    HStack {
+                        Spacer()
+                        Image("tiss_logo")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 36)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(Color.white.opacity(0.95),
+                                        in: RoundedRectangle(cornerRadius: 8))
+                        Spacer()
+                    }
+                    .padding(.bottom, 12)
                 }
                 .padding(.horizontal, 20)
             }

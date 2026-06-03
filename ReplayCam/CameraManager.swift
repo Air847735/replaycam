@@ -52,7 +52,14 @@ final class CameraManager: NSObject, ObservableObject {
         }
     }
 
-    func setDelay(_ seconds: Double) { delaySeconds = seconds }
+    func setDelay(_ seconds: Double) {
+        delaySeconds = seconds
+        // If the buffer doesn't yet have frames old enough for the new delay,
+        // clear the stale image so the countdown placeholder appears.
+        if seconds > frameBuffer.duration {
+            delayedImage = nil
+        }
+    }
 
     func saveRecentFrames(duration: TimeInterval) {
         guard !isSaving else { return }

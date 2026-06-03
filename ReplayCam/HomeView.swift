@@ -28,9 +28,11 @@ struct HomeView: View {
                         Image("tiss_logo")
                             .resizable()
                             .scaledToFit()
-                            .frame(height: 22)
-                            .colorMultiply(.white)   // invert to white for dark bg
-                            .opacity(0.75)
+                            .frame(height: 20)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(Color.white.opacity(0.92),
+                                        in: RoundedRectangle(cornerRadius: 6))
                     }
                     .padding(.top, 16)
 

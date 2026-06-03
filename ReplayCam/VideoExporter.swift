@@ -77,6 +77,15 @@ enum VideoExporter {
         return url
     }
 
+    /// Move exported temp file into the app's persistent clips directory.
+    static func moveToClipsDirectory(from tempURL: URL) throws -> URL {
+        let dir = ClipStore.clipsDirectory
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let dest = dir.appendingPathComponent(tempURL.lastPathComponent)
+        try FileManager.default.moveItem(at: tempURL, to: dest)
+        return dest
+    }
+
     static func saveToPhotoLibrary(url: URL) async throws {
         let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
         guard status == .authorized || status == .limited else {

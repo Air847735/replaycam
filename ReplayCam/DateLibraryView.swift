@@ -208,7 +208,11 @@ struct DayDetailView: View {
                 .simultaneousGesture(
                     MagnificationGesture()
                         .updating($pinchScale) { value, state, _ in state = value }
-                        .onEnded { _ in columnCount = liveColumnCount }
+                        .onEnded { finalScale in
+                            // Use finalScale directly — pinchScale resets to 1.0 after this
+                            columnCount = Int((CGFloat(columnCount) / finalScale).rounded())
+                                .clamped(to: 2...5)
+                        }
                 )
                 .animation(.spring(response: 0.2, dampingFraction: 0.75), value: liveColumnCount)
             }

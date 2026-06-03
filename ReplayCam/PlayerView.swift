@@ -35,7 +35,7 @@ struct PlayerView: View {
 
     private var overlayControls: some View {
         VStack {
-            // Top: close button
+            // Top: close + export
             HStack {
                 Button {
                     player.pause()
@@ -46,7 +46,18 @@ struct PlayerView: View {
                         .foregroundStyle(.white, Color.black.opacity(0.4))
                         .shadow(color: .black.opacity(0.4), radius: 4)
                 }
+
                 Spacer()
+
+                ShareLink(
+                    item: url,
+                    preview: SharePreview("影片片段", icon: Image(systemName: "film"))
+                ) {
+                    Image(systemName: "square.and.arrow.up.circle.fill")
+                        .font(.system(size: 30))
+                        .foregroundStyle(.white, Color.black.opacity(0.4))
+                        .shadow(color: .black.opacity(0.4), radius: 4)
+                }
             }
             .padding(.horizontal, 16)
             .padding(.top, 56)

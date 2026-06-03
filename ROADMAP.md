@@ -20,6 +20,24 @@
 - [x] **縮放控制**：即時視窗支援雙指捏合放大／縮小（0.5× ~ 3×）
 - [x] **旋轉方向修正**：橫向錄影不再旋轉 90°，自動對應裝置方向
 
+### 片段庫 / 播放器
+- [x] **ClipStore**：管理 Documents/ReplayCamClips/，依建立日期排序
+- [x] **DateLibraryView**：依日期分組瀏覽，顯示每日片段數與總時長
+- [x] **DayDetailView**：縮圖方格（letterbox），pinch 調整欄數（2–5 欄），多選刪除
+- [x] **PlayerView**：自訂播放器，縮圖 scrubber（30 格 + 拖曳預覽氣泡）
+- [x] **播放速度**：¼× / ½× / 1× 切換
+- [x] **最愛標記**：UserDefaults 持久化，PlayerView 與庫列表連動
+- [x] **穩定 cell ID**：SavedClip.id 以檔名為 key，防止 SwiftUI 重建 cell
+
+### 品牌視覺
+- [x] **HomeView 品牌背景**：TISS 漸層（深海軍藍 → 深青色）+ tiss_pattern 紋理
+- [x] **SettingsView 品牌背景**：與 HomeView 一致（scrollContentBackground 透明）
+
+### 匯出 / 分享
+- [x] **中文匯出分享**：UIActivityViewController 取代 ShareLink
+- [x] **排除「拷貝」選項**：excludedActivityTypes = [.copyToPasteboard, .saveToCameraRoll]
+- [x] **「儲存影片」中文化**：自訂 SaveVideoActivity（UIActivity 子類別）
+
 ### UI / UX
 - [x] **小視窗可拖移**：即時畫面可自由拖到畫面任意位置
 - [x] **旋轉後小視窗歸位**：切換橫直向時自動 clamp 回安全區域
@@ -39,6 +57,10 @@
 - [ ] **儲存成功顯示縮圖**：儲存完成後短暫顯示影片第一幀，取代純文字提示
 - [ ] **深色 / 淺色模式適配**：控制列背景色跟著系統主題調整
 
+### 效能
+- [ ] **60fps 模式**：錄製 + 緩衝區 + 匯出一起升級（需調整幀率上限、清理門檻、VideoExporter fps），適合動作場景
+- [ ] **UI throttle 提升**：延遲畫面從 25fps → 30fps（`delayedInterval: 1.0 / 30.0`），代價小
+
 ### 相機功能
 - [ ] **前鏡頭支援**：切換前 / 後鏡頭（適合自拍練習、舞蹈）
 - [ ] **手電筒開關**：低光源環境輔助補光
@@ -54,7 +76,7 @@
 - [ ] **計時器 / 倒數**：幾秒後自動截取畫面或開始緩衝，方便獨自練習
 
 ### 儲存與管理
-- [ ] **App 內片段庫**：儲存的片段直接在 App 內瀏覽，不用跳去相簿
+- [x] **App 內片段庫**：儲存的片段直接在 App 內瀏覽，不用跳去相簿
 - [ ] **一鍵快速標記**：按一下標記「這一刻」，自動儲存前後 3 秒短片段
 - [ ] **語音備註**：儲存影片時同步錄製語音說明，合入同一個影片檔
 
@@ -91,6 +113,9 @@
 | ⏳ 待處理 | App 進背景後相機停止 | 需處理 `UIApplication.didEnterBackgroundNotification` |
 | ⏳ 待處理 | 匯出進度無細粒度回報 | `requestMediaDataWhenReady` 需額外計算百分比 |
 | ⏳ 待處理 | Git commit author 未設定 | `git config --global user.name / user.email` |
+| ⏳ 待處理 | LibraryView 與 PlayerView 的 ShareSheet 重複 | 可統一成一個 VideoShareSheet |
+| ⏳ 待處理 | nonisolated(unsafe) 警告（FrameBuffer、CIContext）| 可改用 actor 或移除不必要標記 |
+| ⏳ 待處理 | AVCaptureVideoOrientation deprecated | 需改用 AVCaptureDeviceRotationCoordinator |
 
 ---
 

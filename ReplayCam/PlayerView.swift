@@ -125,6 +125,7 @@ struct PlayerView: View {
     @StateObject private var model: PlayerModel
     @ObservedObject private var store = ClipStore.shared
     @Environment(\.dismiss) private var dismiss
+    @State private var showShareSheet = false
 
     init(url: URL) {
         self.url = url
@@ -185,7 +186,9 @@ struct PlayerView: View {
             .buttonStyle(.plain)
 
             // Export
-            ShareLink(item: url, preview: SharePreview("影片片段", icon: Image(systemName: "film"))) {
+            Button {
+                showShareSheet = true
+            } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "square.and.arrow.up").font(.system(size: 13, weight: .semibold))
                     Text("匯出影片").font(.system(size: 14, weight: .semibold))
@@ -196,6 +199,10 @@ struct PlayerView: View {
                 .shadow(color: .black.opacity(0.3), radius: 4)
             }
             .buttonStyle(.plain)
+            .sheet(isPresented: $showShareSheet) {
+                VideoShareSheet(url: url)
+                    .ignoresSafeArea()
+            }
         }
         .padding(.horizontal, 16).padding(.top, 56)
     }
@@ -378,6 +385,51 @@ struct ThumbnailScrubber: View {
         let half: CGFloat = 30
         return dragX.clamped(to: half...(width - half)) - width / 2
     }
+}
+
+// MARK: - Share sheet (excludes Copy; replaces Save Video with Chinese label)
+
+private final class SaveVideoActivity: UIActivity {
+    private var url: URL?
+
+    override class var activityCategory: UIActivity.Category { .action }
+    override var activityType: UIActivity.ActivityType? {
+        UIActivity.ActivityType("com.replaycam.saveVideo")
+    }
+    override var activityTitle: String? { "儲存影片" }
+    override var activityImage: UIImage? { UIImage(systemName: "square.and.arrow.down") }
+
+    override func canPerform(withActivityItems activityItems: [Any]) -> Bool {
+        activityItems.contains { $0 is URL }
+    }
+
+    override func prepare(withActivityItems activityItems: [Any]) {
+        url = activityItems.compactMap { $0 as? URL }.first
+    }
+
+    override func perform() {
+        guard let url else { activityDidFinish(false); return }
+        UISaveVideoAtPathToSavedPhotosAlbum(url.path, self, #selector(didFinish(_:error:context:)), nil)
+    }
+
+    @objc private func didFinish(_ path: String, error: Error?, context: UnsafeMutableRawPointer?) {
+        activityDidFinish(error == nil)
+    }
+}
+
+private struct VideoShareSheet: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let vc = UIActivityViewController(
+            activityItems: [url],
+            applicationActivities: [SaveVideoActivity()]
+        )
+        vc.excludedActivityTypes = [.copyToPasteboard, .saveToCameraRoll]
+        return vc
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 // MARK: - Video container (hides native playback controls)

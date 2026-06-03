@@ -1,51 +1,68 @@
 import SwiftUI
 
 struct SettingsView: View {
-    // Persists across sessions; ContentView reads the same key on open
     @AppStorage("defaultDelay") private var defaultDelay: Double = 3.0
     @ObservedObject private var store = ClipStore.shared
     @State private var showDeleteConfirm = false
 
     var body: some View {
-        List {
-            // ── Recording ────────────────────────────────────────────────
-            Section("錄影") {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Label("預設延遲", systemImage: "clock")
-                        Spacer()
-                        Text("\(Int(defaultDelay)) 秒")
-                            .font(.system(size: 15, weight: .bold, design: .rounded))
-                            .foregroundColor(.blue)
-                            .monospacedDigit()
+        ZStack {
+            // ── Background: same brand gradient + pattern as HomeView ────
+            LinearGradient(
+                colors: [
+                    Color(red: 0.04, green: 0.16, blue: 0.30),
+                    Color(red: 0.02, green: 0.22, blue: 0.22)
+                ],
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
+            Image("tiss_pattern")
+                .resizable(resizingMode: .tile)
+                .ignoresSafeArea()
+                .opacity(0.13)
+
+            List {
+                // ── Recording ────────────────────────────────────────────────
+                Section("錄影") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Label("預設延遲", systemImage: "clock")
+                            Spacer()
+                            Text("\(Int(defaultDelay)) 秒")
+                                .font(.system(size: 15, weight: .bold, design: .rounded))
+                                .foregroundColor(.blue)
+                                .monospacedDigit()
+                        }
+                        Slider(value: $defaultDelay, in: 1...30, step: 1)
+                            .tint(.blue)
+                        Text("開啟拍攝時預設的延遲秒數")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
-                    Slider(value: $defaultDelay, in: 1...30, step: 1)
-                        .tint(.blue)
-                    Text("開啟拍攝時預設的延遲秒數")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    .padding(.vertical, 4)
                 }
-                .padding(.vertical, 4)
-            }
 
-            // ── Storage ──────────────────────────────────────────────────
-            Section("儲存空間") {
-                LabeledContent("片段數量", value: "\(store.clips.count) 個")
-                LabeledContent("佔用空間", value: storageUsed)
+                // ── Storage ──────────────────────────────────────────────────
+                Section("儲存空間") {
+                    LabeledContent("片段數量", value: "\(store.clips.count) 個")
+                    LabeledContent("佔用空間", value: storageUsed)
 
-                Button(role: .destructive) {
-                    showDeleteConfirm = true
-                } label: {
-                    Label("清除所有片段", systemImage: "trash")
+                    Button(role: .destructive) {
+                        showDeleteConfirm = true
+                    } label: {
+                        Label("清除所有片段", systemImage: "trash")
+                    }
+                    .disabled(store.clips.isEmpty)
                 }
-                .disabled(store.clips.isEmpty)
-            }
 
-            // ── About ────────────────────────────────────────────────────
-            Section("關於") {
-                LabeledContent("版本", value: appVersion)
-                LabeledContent("建置", value: appBuild)
+                // ── About ────────────────────────────────────────────────────
+                Section("關於") {
+                    LabeledContent("版本", value: appVersion)
+                    LabeledContent("建置", value: appBuild)
+                }
             }
+            .scrollContentBackground(.hidden)
         }
         .navigationTitle("設定")
         .confirmationDialog("確定要刪除所有片段嗎？", isPresented: $showDeleteConfirm, titleVisibility: .visible) {

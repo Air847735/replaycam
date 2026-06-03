@@ -7,32 +7,40 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Background gradient
-                LinearGradient(
-                    colors: [Color(white: 0.06), Color(white: 0.02)],
-                    startPoint: .top, endPoint: .bottom
-                )
-                .ignoresSafeArea()
+                // ── Background: dark base + TISS pattern overlay ────────────
+                Color(white: 0.04)
+                    .ignoresSafeArea()
 
+                Image("tiss_pattern")
+                    .resizable(resizingMode: .tile)
+                    .ignoresSafeArea()
+                    .opacity(0.07)
+
+                // ── Content ─────────────────────────────────────────────────
                 VStack(alignment: .leading, spacing: 24) {
-                    // ── Header ─────────────────────────────────────────────
-                    VStack(alignment: .leading, spacing: 4) {
+
+                    // Header: app name + TISS logo
+                    VStack(alignment: .leading, spacing: 12) {
                         Text("ReplayCam")
                             .font(.system(size: 30, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
-                        Text("動作延遲回放")
-                            .font(.subheadline)
-                            .foregroundColor(.white.opacity(0.5))
+
+                        Image("tiss_logo")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 22)
+                            .colorMultiply(.white)   // invert to white for dark bg
+                            .opacity(0.75)
                     }
                     .padding(.top, 16)
 
-                    // ── Camera card (large) ────────────────────────────────
+                    // Camera card (large)
                     Button { showCamera = true } label: {
                         cameraCard
                     }
                     .buttonStyle(.plain)
 
-                    // ── Library + Settings ─────────────────────────────────
+                    // Library + Settings
                     HStack(spacing: 16) {
                         NavigationLink(destination: DateLibraryView()) {
                             secondaryCard(
@@ -69,28 +77,38 @@ struct HomeView: View {
     // MARK: - Cards
 
     private var cameraCard: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Image(systemName: "camera.fill")
-                .font(.system(size: 28))
-                .foregroundColor(.white)
+        ZStack(alignment: .bottomLeading) {
+            // Pattern accent in card
+            Image("tiss_pattern")
+                .resizable(resizingMode: .tile)
+                .opacity(0.12)
+                .clipShape(RoundedRectangle(cornerRadius: 22))
 
-            Spacer()
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("延遲錄影")
-                    .font(.title2).fontWeight(.bold)
+            VStack(alignment: .leading, spacing: 0) {
+                Image(systemName: "camera.fill")
+                    .font(.system(size: 28))
                     .foregroundColor(.white)
-                Text("設定延遲秒數，即時觀看動作回放")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.75))
+
+                Spacer()
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("延遲錄影")
+                        .font(.title2).fontWeight(.bold)
+                        .foregroundColor(.white)
+                    Text("設定延遲秒數，即時觀看動作回放")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.75))
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(24)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(24)
+        .frame(maxWidth: .infinity)
         .frame(height: 170)
         .background(
             LinearGradient(
-                colors: [Color.blue, Color.blue.opacity(0.65)],
+                colors: [Color(red: 0.1, green: 0.45, blue: 0.8),
+                         Color(red: 0.05, green: 0.6, blue: 0.5)],
                 startPoint: .topLeading, endPoint: .bottomTrailing
             ),
             in: RoundedRectangle(cornerRadius: 22)

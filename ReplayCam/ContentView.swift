@@ -3,28 +3,84 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var camera = CameraManager()
     @State private var selectedDelay: Double = 3.0
-    @State private var showSaveOptions = false
+    @State private var saveDuration: Double = 10.0
 
-    // Draggable preview: base position (nil = default bottom-right)
+    @State private var controlsVisible = true
+    @State private var showLibrary = false
+
+    // Draggable + resizable preview
     @State private var previewBase: CGPoint? = nil
-    // Live translation while finger is down; auto-resets to .zero on release
     @GestureState private var dragTranslation: CGSize = .zero
+    @State private var previewScale: CGFloat = 1.0
+    @GestureState private var pinchDelta: CGFloat = 1.0
 
-    private let delayOptions = [1.0, 3.0, 5.0, 10.0, 15.0, 30.0]
-    private let saveOptions = [5.0, 10.0, 15.0, 30.0]
+    private let previewScaleRange: ClosedRange<CGFloat> = 0.5...3.0
+
+    private let saveRange: ClosedRange<Double> = 3...30
 
     var body: some View {
         GeometryReader { geo in
             ZStack {
+                // ── Delayed feed ────────────────────────────────────────────
                 delayedBackground(size: geo.size)
-                controls
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation(.easeInOut(duration: 0.22)) {
+                            controlsVisible.toggle()
+                        }
+                    }
+
+                // ── Library button (always visible, top-right) ──────────────
+                VStack {
+                    HStack {
+                        Spacer()
+                        Button { showLibrary = true } label: {
+                            Image(systemName: "film.stack.fill")
+                                .font(.system(size: 20))
+                                .foregroundStyle(.white)
+                                .padding(10)
+                                .background(.ultraThinMaterial, in: Circle())
+                                .shadow(color: .black.opacity(0.3), radius: 4)
+                        }
+                        .padding(.top, 56)
+                        .padding(.trailing, 20)
+                    }
+                    Spacer()
+                }
+
+                // ── Collapsed hint ──────────────────────────────────────────
+                if !controlsVisible {
+                    VStack {
+                        Spacer()
+                        Text("⏱ \(Int(selectedDelay))s")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 14).padding(.vertical, 7)
+                            .background(.ultraThinMaterial, in: Capsule())
+                            .padding(.bottom, 20)
+                    }
+                    .transition(.opacity)
+                }
+
+                // ── Control panel ───────────────────────────────────────────
+                if controlsVisible {
+                    VStack {
+                        Spacer()
+                        controlPanel
+                    }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+
+                // ── Draggable realtime preview ──────────────────────────────
                 let base = previewBase ?? defaultPreviewPos(in: geo.size)
                 let livePos = clampPreview(
                     CGPoint(x: base.x + dragTranslation.width,
                             y: base.y + dragTranslation.height),
                     in: geo.size
                 )
-                realtimePreview
+                let liveScale = (previewScale * pinchDelta)
+                    .clamped(to: previewScaleRange)
+                realtimePreview(scale: liveScale)
                     .position(livePos)
                     .gesture(
                         DragGesture()
@@ -38,9 +94,18 @@ struct ContentView: View {
                                     in: geo.size
                                 )
                             }
+                        .simultaneously(with:
+                            MagnificationGesture()
+                                .updating($pinchDelta) { value, state, _ in
+                                    state = value
+                                }
+                                .onEnded { value in
+                                    previewScale = (previewScale * value)
+                                        .clamped(to: previewScaleRange)
+                                }
+                        )
                     )
                     .onChange(of: geo.size) { _, newSize in
-                        // Re-clamp after device rotation
                         if let current = previewBase {
                             previewBase = clampPreview(current, in: newSize)
                         }
@@ -52,29 +117,22 @@ struct ContentView: View {
             camera.setDelay(selectedDelay)
             camera.checkPermissions()
         }
-        .confirmationDialog("選擇要儲存的長度", isPresented: $showSaveOptions, titleVisibility: .visible) {
-            ForEach(saveOptions, id: \.self) { duration in
-                Button("最近 \(Int(duration)) 秒") { camera.saveRecentFrames(duration: duration) }
-            }
-            Button("取消", role: .cancel) {}
-        } message: {
-            Text("選擇要儲存的影片長度")
-        }
         .alert("儲存成功", isPresented: $camera.showSuccess) {
             Button("確定", role: .cancel) {}
         } message: {
             Text("影片已成功儲存到相簿")
         }
+        .sheet(isPresented: $showLibrary) {
+            LibraryView()
+        }
     }
 
     // MARK: - Preview positioning
 
-    /// Default centre position: bottom-right corner, clear of the control panel.
     private func defaultPreviewPos(in size: CGSize) -> CGPoint {
-        CGPoint(x: size.width - 130, y: size.height - 210)
+        CGPoint(x: size.width - 90, y: size.height - 280)
     }
 
-    /// Keep the preview centre at least 80 pt from every edge.
     private func clampPreview(_ point: CGPoint, in size: CGSize) -> CGPoint {
         CGPoint(
             x: min(max(point.x, 80), size.width  - 80),
@@ -82,7 +140,7 @@ struct ContentView: View {
         )
     }
 
-    // MARK: - Subviews
+    // MARK: - Delayed background
 
     @ViewBuilder
     private func delayedBackground(size: CGSize) -> some View {
@@ -110,111 +168,167 @@ struct ContentView: View {
                     Text("相機未啟動").foregroundColor(.white)
                     if !camera.errorMessage.isEmpty {
                         Text(camera.errorMessage)
-                            .foregroundColor(.red).font(.caption).multilineTextAlignment(.center)
-                            .padding(.horizontal)
+                            .foregroundColor(.red).font(.caption)
+                            .multilineTextAlignment(.center).padding(.horizontal)
                     }
                 }
             }
         )
     }
 
-    /// 底部控制列（不含即時視窗）
-    private var controls: some View {
-        VStack {
-            Spacer()
-            controlPanel
-        }
-    }
+    // MARK: - Realtime preview
 
-    /// 可拖曳的即時視窗（獨立在 ZStack 中，預設右下角）
-    private var realtimePreview: some View {
-        VStack(spacing: 8) {
+    private func realtimePreview(scale: CGFloat) -> some View {
+        // Base dimensions before scaling
+        let baseW: CGFloat
+        let baseH: CGFloat
+        if let img = camera.realtimeImage {
+            let portrait = img.size.height > img.size.width
+            baseW = portrait ? 90  : 160
+            baseH = portrait ? 160 : 100
+        } else {
+            baseW = 160; baseH = 100
+        }
+        let w = baseW * scale
+        let h = baseH * scale
+
+        return ZStack(alignment: .topLeading) {
             Group {
                 if let img = camera.realtimeImage {
-                    let portrait = img.size.height > img.size.width
                     Image(uiImage: img)
                         .resizable()
                         .scaledToFill()
-                        .frame(width:  portrait ? 112 : 200,
-                               height: portrait ? 200 : 150)
+                        .frame(width: w, height: h)
                         .clipped()
                 } else {
-                    Color.gray.overlay(ProgressView().tint(.white))
-                        .frame(width: 200, height: 150)
+                    Color.black.opacity(0.5)
+                        .overlay(ProgressView().tint(.white))
+                        .frame(width: w, height: h)
                 }
             }
-            .cornerRadius(12)
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.yellow, lineWidth: 3))
-            .shadow(color: .black.opacity(0.5), radius: 10)
+            .cornerRadius(10)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.white.opacity(0.5), lineWidth: 1.5)
+            )
+            .shadow(color: .black.opacity(0.45), radius: 8, y: 2)
 
-            Text("即時畫面")
-                .font(.caption).fontWeight(.bold).foregroundColor(.white)
-                .padding(.horizontal, 12).padding(.vertical, 4)
-                .background(Color.red).cornerRadius(8)
+            // LIVE badge
+            HStack(spacing: 4) {
+                Circle().fill(Color.red).frame(width: 6, height: 6)
+                Text("LIVE")
+                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+            }
+            .padding(.horizontal, 6).padding(.vertical, 3)
+            .background(Color.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 4))
+            .padding(6)
         }
-        .padding(20)
     }
+
+    // MARK: - Control panel
 
     private var controlPanel: some View {
-        VStack(spacing: 15) {
-            HStack(spacing: 20) {
-                delayPicker
-                bufferStatus
-            }
+        VStack(spacing: 10) {
+            delaySlider
+            saveDurationSlider
             saveButton
         }
-        .padding(.bottom, 30)
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 28)
+        .background(
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .ignoresSafeArea(edges: .bottom)
+        )
     }
 
-    private var delayPicker: some View {
-        Menu {
-            ForEach(delayOptions, id: \.self) { delay in
-                Button {
-                    selectedDelay = delay
-                    camera.setDelay(delay)
-                } label: {
-                    HStack {
-                        Text("\(Int(delay)) 秒")
-                        if delay == selectedDelay { Image(systemName: "checkmark") }
-                    }
-                }
-            }
-        } label: {
-            Label("延遲: \(Int(selectedDelay))秒", systemImage: "clock")
-                .padding()
-                .background(Color.black.opacity(0.7))
+    // MARK: - Shared slider row
+
+    /// Single-line layout: [icon label]  [━━●━━━━━]  [value]
+    private func sliderRow(
+        icon: String,
+        label: String,
+        valueText: String,
+        slider: some View
+    ) -> some View {
+        HStack(spacing: 10) {
+            Label(label, systemImage: icon)
+                .font(.system(size: 13))
+                .foregroundColor(.white.opacity(0.7))
+                .fixedSize()
+
+            slider
+
+            Text(valueText)
+                .font(.system(size: 14, weight: .bold, design: .rounded))
                 .foregroundColor(.white)
-                .cornerRadius(10)
+                .monospacedDigit()
+                .frame(width: 34, alignment: .trailing)
         }
     }
 
-    private var bufferStatus: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("緩衝: \(String(format: "%.1f", camera.bufferDuration))秒")
-            Text("幀數: \(camera.bufferFrameCount)")
-            if camera.isSaving { Text("儲存中...").foregroundColor(.green) }
-        }
-        .font(.caption).foregroundColor(.white)
-        .padding(8).background(Color.black.opacity(0.7)).cornerRadius(8)
+    // MARK: - Delay slider
+
+    private var delaySlider: some View {
+        sliderRow(
+            icon: "clock",
+            label: "延遲",
+            valueText: "\(Int(selectedDelay))s",
+            slider: Slider(value: $selectedDelay, in: 1...30, step: 1)
+                .tint(.white)
+                .onChange(of: selectedDelay) { _, newVal in camera.setDelay(newVal) }
+        )
     }
+
+    // MARK: - Save duration slider
+
+    private var saveDurationSlider: some View {
+        sliderRow(
+            icon: "clock.arrow.circlepath",
+            label: "儲存長度",
+            valueText: "\(Int(saveDuration))s",
+            slider: Slider(value: $saveDuration, in: saveRange, step: 1)
+                .tint(.white)
+        )
+    }
+
+    // MARK: - Save button (state embedded in label)
 
     private var saveButton: some View {
         let ready = camera.bufferFrameCount >= 10 && !camera.isSaving
-        return Button { showSaveOptions = true } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "arrow.down.circle.fill").font(.system(size: 20))
-                Text("儲存影片 (\(camera.bufferFrameCount)幀)")
-                    .font(.system(size: 16, weight: .semibold))
+        return Button {
+            let duration = min(saveDuration, camera.bufferDuration)
+            camera.saveRecentFrames(duration: duration)
+        } label: {
+            HStack(spacing: 8) {
+                if camera.isSaving {
+                    ProgressView().scaleEffect(0.8).tint(.white)
+                    Text("儲存中...")
+                } else {
+                    Image(systemName: "arrow.down.circle.fill")
+                    Text(ready ? "儲存影片" : "準備中...")
+                }
             }
+            .font(.system(size: 15, weight: .semibold))
             .foregroundColor(.white)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(camera.isSaving ? Color.orange : ready ? Color.blue : Color.gray)
-            .cornerRadius(12)
-            .shadow(color: .black.opacity(0.3), radius: 5, y: 3)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(camera.isSaving ? Color.orange : ready ? Color.blue : Color.gray.opacity(0.4))
+            )
         }
         .disabled(!ready)
         .buttonStyle(.plain)
-        .padding(.horizontal, 20)
+    }
+}
+
+// MARK: - Helpers
+
+private extension Comparable {
+    func clamped(to range: ClosedRange<Self>) -> Self {
+        min(max(self, range.lowerBound), range.upperBound)
     }
 }

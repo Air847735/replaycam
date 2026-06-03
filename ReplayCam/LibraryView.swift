@@ -4,6 +4,7 @@ import AVFoundation
 /// Shared thumbnail cell used by DateLibraryView / DayDetailView.
 struct ClipCell: View {
     let clip: SavedClip
+    @ObservedObject private var store = ClipStore.shared
     @State private var thumbnail: UIImage?
 
     var body: some View {
@@ -22,22 +23,22 @@ struct ClipCell: View {
             .aspectRatio(9/16, contentMode: .fit)
             .clipped()
 
-            // Top-right: share button
+            // Top-right: favourite button
             VStack {
                 HStack {
                     Spacer()
-                    ShareLink(
-                        item: clip.url,
-                        preview: SharePreview(
-                            clip.date.formatted(.dateTime.month().day().hour().minute()),
-                            icon: Image(systemName: "film")
-                        )
-                    ) {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(.white)
+                    let fav = store.isFavorite(clip)
+                    Button {
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
+                            store.toggleFavorite(clip)
+                        }
+                    } label: {
+                        Image(systemName: fav ? "heart.fill" : "heart")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(fav ? .red : .white)
                             .padding(7)
                             .background(Color.black.opacity(0.5), in: Circle())
+                            .scaleEffect(fav ? 1.15 : 1.0)
                     }
                     .buttonStyle(.plain)
                     .padding(6)

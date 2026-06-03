@@ -15,6 +15,9 @@ final class ClipStore: ObservableObject {
     static let shared = ClipStore()
 
     @Published var clips: [SavedClip] = []
+    @Published private(set) var favoriteIDs: Set<String> = []
+
+    private static let favoritesKey = "favoriteClipIDs"
 
     // MARK: - Directory
 
@@ -29,6 +32,7 @@ final class ClipStore: ObservableObject {
     private init() {
         createDirectoryIfNeeded()
         refresh()
+        loadFavorites()
     }
 
     // MARK: - Public API
@@ -58,6 +62,30 @@ final class ClipStore: ObservableObject {
     func delete(_ clip: SavedClip) {
         try? FileManager.default.removeItem(at: clip.url)
         clips.removeAll { $0.id == clip.id }
+        favoriteIDs.remove(clip.url.lastPathComponent)
+        saveFavorites()
+    }
+
+    // MARK: - Favourites
+
+    func isFavorite(_ clip: SavedClip) -> Bool {
+        favoriteIDs.contains(clip.url.lastPathComponent)
+    }
+
+    func toggleFavorite(_ clip: SavedClip) {
+        let key = clip.url.lastPathComponent
+        if favoriteIDs.contains(key) { favoriteIDs.remove(key) }
+        else { favoriteIDs.insert(key) }
+        saveFavorites()
+    }
+
+    private func loadFavorites() {
+        let saved = UserDefaults.standard.stringArray(forKey: Self.favoritesKey) ?? []
+        favoriteIDs = Set(saved)
+    }
+
+    private func saveFavorites() {
+        UserDefaults.standard.set(Array(favoriteIDs), forKey: Self.favoritesKey)
     }
 
     // MARK: - Private

@@ -156,19 +156,38 @@ struct ContentView: View {
         .ignoresSafeArea()
     }
 
+    /// Seconds still needed before the buffer contains a frame old enough to show.
+    private var waitSeconds: Int {
+        guard camera.isRunning else { return 0 }
+        return max(0, Int(ceil(selectedDelay - camera.bufferDuration)))
+    }
+
     private var cameraPlaceholder: some View {
         Color.black.overlay(
             VStack(spacing: 16) {
-                if camera.isRunning {
+                if !camera.isRunning {
+                    // Camera not yet set up
                     ProgressView().scaleEffect(2).tint(.white)
-                    Text("載入中...").foregroundColor(.white)
-                } else {
-                    Text("相機未啟動").foregroundColor(.white)
+                    Text("相機啟動中...").foregroundColor(.white)
                     if !camera.errorMessage.isEmpty {
                         Text(camera.errorMessage)
                             .foregroundColor(.red).font(.caption)
                             .multilineTextAlignment(.center).padding(.horizontal)
                     }
+                } else if waitSeconds > 0 {
+                    // Countdown until buffer has enough history
+                    Text("\(waitSeconds)")
+                        .font(.system(size: 96, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .monospacedDigit()
+                        .contentTransition(.numericText(countsDown: true))
+                        .animation(.easeInOut(duration: 0.35), value: waitSeconds)
+                    Text("秒後顯示延遲畫面")
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.65))
+                } else {
+                    // Buffer ready but first frame not decoded yet
+                    ProgressView().scaleEffect(1.5).tint(.white)
                 }
             }
         )

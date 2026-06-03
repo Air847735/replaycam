@@ -247,13 +247,17 @@ struct ContentView: View {
     // MARK: - Control panel
 
     private var controlPanel: some View {
-        VStack(spacing: 10) {
-            delaySlider
-            saveDurationSlider
+        HStack(alignment: .center, spacing: 14) {
+            // Sliders (take all remaining width)
+            VStack(spacing: 12) {
+                delaySlider
+                saveDurationSlider
+            }
+            // Save button (compact, spans both slider rows)
             saveButton
         }
         .padding(.horizontal, 20)
-        .padding(.top, 12)
+        .padding(.top, 14)
         .padding(.bottom, 28)
         .background(
             Rectangle()
@@ -312,7 +316,7 @@ struct ContentView: View {
         )
     }
 
-    // MARK: - Save button (state embedded in label)
+    // MARK: - Save button (compact vertical, sits beside sliders)
 
     private var saveButton: some View {
         let ready = camera.bufferFrameCount >= 10 && !camera.isSaving
@@ -320,21 +324,23 @@ struct ContentView: View {
             let duration = min(saveDuration, camera.bufferDuration)
             camera.saveRecentFrames(duration: duration)
         } label: {
-            HStack(spacing: 8) {
+            VStack(spacing: 7) {
                 if camera.isSaving {
-                    ProgressView().scaleEffect(0.8).tint(.white)
-                    Text("儲存中...")
+                    ProgressView().scaleEffect(0.85).tint(.white)
+                        .frame(width: 24, height: 24)
                 } else {
                     Image(systemName: "arrow.down.circle.fill")
-                    Text(ready ? "儲存影片" : "準備中...")
+                        .font(.system(size: 24))
                 }
+                Text(camera.isSaving ? "儲存中" : ready ? "儲存" : "準備中")
+                    .font(.system(size: 11, weight: .semibold))
+                    .lineLimit(1)
             }
-            .font(.system(size: 15, weight: .semibold))
             .foregroundColor(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
+            .frame(width: 62)
+            .padding(.vertical, 14)
             .background(
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: 14)
                     .fill(camera.isSaving ? Color.orange : ready ? Color.blue : Color.gray.opacity(0.4))
             )
         }

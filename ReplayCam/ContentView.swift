@@ -6,7 +6,6 @@ struct ContentView: View {
     @State private var saveDuration: Double = 10.0
 
     @State private var controlsVisible = true
-    @State private var showLibrary = false
 
     // Draggable + resizable preview
     @State private var previewBase: CGPoint? = nil
@@ -29,24 +28,6 @@ struct ContentView: View {
                             controlsVisible.toggle()
                         }
                     }
-
-                // ── Library button (always visible, top-right) ──────────────
-                VStack {
-                    HStack {
-                        Spacer()
-                        Button { showLibrary = true } label: {
-                            Image(systemName: "film.stack.fill")
-                                .font(.system(size: 20))
-                                .foregroundStyle(.white)
-                                .padding(10)
-                                .background(.ultraThinMaterial, in: Circle())
-                                .shadow(color: .black.opacity(0.3), radius: 4)
-                        }
-                        .padding(.top, 56)
-                        .padding(.trailing, 20)
-                    }
-                    Spacer()
-                }
 
                 // ── Collapsed hint ──────────────────────────────────────────
                 if !controlsVisible {
@@ -121,9 +102,6 @@ struct ContentView: View {
             Button("確定", role: .cancel) {}
         } message: {
             Text("影片已成功儲存到相簿")
-        }
-        .sheet(isPresented: $showLibrary) {
-            LibraryView()
         }
     }
 

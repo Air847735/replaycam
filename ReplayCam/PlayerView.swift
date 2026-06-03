@@ -188,7 +188,7 @@ struct PlayerView: View {
             ShareLink(item: url, preview: SharePreview("影片片段", icon: Image(systemName: "film"))) {
                 HStack(spacing: 6) {
                     Image(systemName: "square.and.arrow.up").font(.system(size: 13, weight: .semibold))
-                    Text("匯出").font(.system(size: 14, weight: .semibold))
+                    Text("匯出影片").font(.system(size: 14, weight: .semibold))
                 }
                 .foregroundColor(.white)
                 .padding(.horizontal, 14).padding(.vertical, 8)

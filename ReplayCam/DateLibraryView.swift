@@ -151,12 +151,12 @@ struct DayDetailView: View {
     let group: DateGroup
     @ObservedObject private var store = ClipStore.shared
     @State private var selectedClip: SavedClip?
+    @State private var columnCount: Int = 3
+    @GestureState private var pinchScale: CGFloat = 1.0
 
-    private let columns = [
-        GridItem(.flexible(), spacing: 2),
-        GridItem(.flexible(), spacing: 2),
-        GridItem(.flexible(), spacing: 2)
-    ]
+    private var columns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: 2), count: columnCount)
+    }
 
     private var currentClips: [SavedClip] {
         let cal = Calendar.current
@@ -198,6 +198,20 @@ struct DayDetailView: View {
                         }
                     }
                 }
+                // Pinch to change grid density (2–5 columns)
+                .gesture(
+                    MagnificationGesture()
+                        .updating($pinchScale) { value, state, _ in state = value }
+                        .onEnded { value in
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                if value > 1.25 {
+                                    columnCount = max(2, columnCount - 1)  // spread → fewer, bigger
+                                } else if value < 0.8 {
+                                    columnCount = min(5, columnCount + 1)  // pinch → more, smaller
+                                }
+                            }
+                        }
+                )
             }
         }
         .navigationTitle(group.displayDate)

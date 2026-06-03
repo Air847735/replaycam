@@ -1,4 +1,4 @@
-import SwiftUI
+    import SwiftUI
 
 struct ContentView: View {
     @StateObject private var camera = CameraManager()
@@ -351,7 +351,7 @@ struct ContentView: View {
 
 // MARK: - Helpers
 
-private extension Comparable {
+extension Comparable {
     func clamped(to range: ClosedRange<Self>) -> Self {
         min(max(self, range.lowerBound), range.upperBound)
     }

@@ -72,12 +72,13 @@ final class CameraManager: NSObject, ObservableObject {
         Task.detached(priority: .userInitiated) { [weak self] in
             do {
                 let tempURL = try await VideoExporter.export(frames: frames)
-                // Move to persistent clips directory so in-app library can show it
-                let clipURL = try VideoExporter.moveToClipsDirectory(from: tempURL)
-                await MainActor.run { ClipStore.shared.refresh() }
-                // Also save to the photo library
-                try await VideoExporter.saveToPhotoLibrary(url: clipURL)
-                await MainActor.run { self?.isSaving = false; self?.showSuccess = true }
+                // Move to persistent clips directory (in-app library)
+                let _ = try VideoExporter.moveToClipsDirectory(from: tempURL)
+                await MainActor.run {
+                    ClipStore.shared.refresh()
+                    self?.isSaving = false
+                    self?.showSuccess = true
+                }
             } catch {
                 print("❌ 儲存失敗: \(error.localizedDescription)")
                 await MainActor.run { self?.isSaving = false }

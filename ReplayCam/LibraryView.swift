@@ -34,7 +34,7 @@ struct ClipCell: View {
                         .overlay(ProgressView().scaleEffect(0.7))
                 }
             }
-            .aspectRatio(9/16, contentMode: .fit)
+            .aspectRatio(1, contentMode: .fit)
             .clipped()
 
             // Blue tint when selected
@@ -95,7 +95,7 @@ struct ClipCell: View {
         let asset = AVURLAsset(url: url)
         let gen = AVAssetImageGenerator(asset: asset)
         gen.appliesPreferredTrackTransform = true
-        gen.maximumSize = CGSize(width: 300, height: 534)
+        gen.maximumSize = CGSize(width: 300, height: 300)
         let time = CMTime(seconds: 0.1, preferredTimescale: 600)
         return (try? gen.copyCGImage(at: time, actualTime: nil)).map { UIImage(cgImage: $0) }
     }

@@ -63,19 +63,16 @@ struct HomeView: View {
                     Spacer()
 
                     // ── TISS Logo footer ───────────────────────────────────
-                    HStack {
-                        Spacer()
-                        Image("tiss_logo")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(height: 36)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(Color.white.opacity(0.95),
-                                        in: RoundedRectangle(cornerRadius: 8))
-                        Spacer()
-                    }
-                    .padding(.bottom, 12)
+                    Image("tiss_logo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: 52)
+                        .padding(.horizontal, 28)
+                        .padding(.vertical, 14)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.white.opacity(0.94),
+                                    in: RoundedRectangle(cornerRadius: 18))
+                        .padding(.bottom, 12)
                 }
                 .padding(.horizontal, 20)
             }

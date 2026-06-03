@@ -3,7 +3,7 @@ import AVKit
 import AVFoundation
 import Combine
 
-// MARK: - Player model (ObservableObject ensures closures always see live state)
+// MARK: - Player model
 
 @MainActor
 final class PlayerModel: ObservableObject {
@@ -16,14 +16,22 @@ final class PlayerModel: ObservableObject {
 
     let player: AVPlayer
     private var timeObserverToken: Any?
-    private let thumbnailCount = 30
+    private var endObserverToken:  NSObjectProtocol?
+    private var isSetup = false
+
+    private static let thumbnailCount = 30
 
     init(url: URL) {
         player = AVPlayer(url: url)
     }
 
+    // MARK: - Lifecycle
+
     func setup(url: URL) {
-        // Duration
+        guard !isSetup else { return }
+        isSetup = true
+
+        // Load duration
         Task { [weak self, url] in
             let asset = AVURLAsset(url: url)
             if let d = try? await asset.load(.duration) {
@@ -31,14 +39,15 @@ final class PlayerModel: ObservableObject {
             }
         }
 
-        // Thumbnails
-        Task.detached(priority: .userInitiated) { [weak self, url] in
-            guard let self else { return }
-            let images = await Self.generateThumbnails(url: url, count: self.thumbnailCount)
-            await MainActor.run { self.thumbnails = images }
+        // Generate thumbnails — capture count as value so Task.detached
+        // doesn't need to hop back to MainActor just to read thumbnailCount.
+        let count = Self.thumbnailCount
+        Task.detached(priority: .userInitiated) { [weak self, url, count] in
+            let images = await PlayerModel.generateThumbnails(url: url, count: count)
+            await MainActor.run { [weak self] in self?.thumbnails = images }
         }
 
-        // Time observer — safe because self is a class
+        // Periodic time observer
         let interval = CMTime(value: 1, timescale: 30)
         timeObserverToken = player.addPeriodicTimeObserver(
             forInterval: interval, queue: .main
@@ -47,24 +56,30 @@ final class PlayerModel: ObservableObject {
             self.currentTime = time.seconds
         }
 
-        // Playback
-        player.play()
-        NotificationCenter.default.addObserver(
+        // Loop: seek to zero and resume when clip ends
+        endObserverToken = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
-            object: player.currentItem, queue: .main
+            object: player.currentItem,
+            queue: .main
         ) { [weak self] _ in
             guard let self else { return }
             self.player.seek(to: .zero) { [weak self] _ in
-                guard let self else { return }
+                guard let self, self.isPlaying else { return }
                 self.player.rate = self.speed
             }
         }
+
+        player.play()
     }
 
     func teardown() {
         player.pause()
-        if let token = timeObserverToken { player.removeTimeObserver(token) }
+        if let t = timeObserverToken { player.removeTimeObserver(t); timeObserverToken = nil }
+        if let t = endObserverToken  { NotificationCenter.default.removeObserver(t); endObserverToken = nil }
+        isSetup = false
     }
+
+    // MARK: - Controls
 
     func togglePlayPause() {
         if isPlaying { player.pause() } else { player.rate = speed }
@@ -72,19 +87,17 @@ final class PlayerModel: ObservableObject {
     }
 
     func seek(to time: Double) {
-        // Cancel queued seeks so fast drags don't pile up
         player.currentItem?.cancelPendingSeeks()
-        let cmTime = CMTime(seconds: time, preferredTimescale: 600)
-        // ±1 frame tolerance — fast enough for live scrubbing, still accurate
-        let frameTolerance = CMTime(value: 1, timescale: 30)
-        player.seek(to: cmTime,
-                    toleranceBefore: frameTolerance,
-                    toleranceAfter:  frameTolerance)
+        let tol = CMTime(value: 1, timescale: 30)
+        player.seek(to: CMTime(seconds: time, preferredTimescale: 600),
+                    toleranceBefore: tol, toleranceAfter: tol)
     }
+
+    // MARK: - Thumbnail generation (nonisolated static — safe to call from detached task)
 
     private static func generateThumbnails(url: URL, count: Int) async -> [UIImage] {
         let asset = AVURLAsset(url: url)
-        guard let dur = try? await asset.load(.duration), dur.seconds > 0 else { return [] }
+        guard let dur = try? await asset.load(.duration), dur.seconds > 0, count > 1 else { return [] }
         let gen = AVAssetImageGenerator(asset: asset)
         gen.appliesPreferredTrackTransform = true
         gen.maximumSize = CGSize(width: 80, height: 144)
@@ -92,9 +105,9 @@ final class PlayerModel: ObservableObject {
         gen.requestedTimeToleranceBefore = tol
         gen.requestedTimeToleranceAfter  = tol
 
+        let total = dur.seconds
         var images: [UIImage] = []
         images.reserveCapacity(count)
-        let total = dur.seconds
         for i in 0..<count {
             let t = total * Double(i) / Double(count - 1)
             if let cg = try? gen.copyCGImage(
@@ -120,14 +133,12 @@ struct PlayerView: View {
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-
             VideoContainer(player: model.player)
                 .ignoresSafeArea()
                 .onTapGesture { model.togglePlayPause() }
-
             overlayControls
         }
-        .onAppear  { model.setup(url: url) }
+        .onAppear   { model.setup(url: url) }
         .onDisappear { model.teardown() }
     }
 
@@ -150,10 +161,7 @@ struct PlayerView: View {
                     .shadow(color: .black.opacity(0.4), radius: 4)
             }
             Spacer()
-            ShareLink(
-                item: url,
-                preview: SharePreview("影片片段", icon: Image(systemName: "film"))
-            ) {
+            ShareLink(item: url, preview: SharePreview("影片片段", icon: Image(systemName: "film"))) {
                 HStack(spacing: 6) {
                     Image(systemName: "square.and.arrow.up").font(.system(size: 13, weight: .semibold))
                     Text("匯出").font(.system(size: 14, weight: .semibold))
@@ -248,7 +256,8 @@ struct ThumbnailScrubber: View {
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .bottom) {
-                // Frame preview popup (shown while dragging)
+
+                // Frame preview popup
                 if isDragging, let preview = previewImage {
                     Image(uiImage: preview)
                         .resizable()
@@ -262,21 +271,20 @@ struct ThumbnailScrubber: View {
                         .transition(.scale(scale: 0.85).combined(with: .opacity))
                 }
 
-                // Film strip + indicator
+                // Film strip
                 ZStack(alignment: .leading) {
-                    // Thumbnails
                     HStack(spacing: 0) {
                         ForEach(model.thumbnails.indices, id: \.self) { i in
                             Image(uiImage: model.thumbnails[i])
                                 .resizable().scaledToFill()
-                                .frame(width: geo.size.width / CGFloat(model.thumbnails.count),
+                                .frame(width:  geo.size.width / CGFloat(model.thumbnails.count),
                                        height: geo.size.height)
                                 .clipped()
                         }
                     }
                     .cornerRadius(8)
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.2), lineWidth: 1))
-                    // Dim unplayed area
+                    // Dim unplayed portion
                     .overlay(
                         GeometryReader { g in
                             let p = model.duration > 0 ? model.currentTime / model.duration : 0
@@ -289,18 +297,20 @@ struct ThumbnailScrubber: View {
                         }
                     )
 
-                    // Position indicator
+                    // Playhead indicator
                     let progress = model.duration > 0 ? model.currentTime / model.duration : 0
                     let xPos = (CGFloat(progress) * geo.size.width).clamped(to: 0...(geo.size.width - 3))
 
                     ZStack {
                         Capsule()
                             .fill(Color.white.opacity(isDragging ? 0.5 : 0.2))
-                            .frame(width: isDragging ? 11 : 7, height: geo.size.height + (isDragging ? 20 : 12))
+                            .frame(width: isDragging ? 11 : 7,
+                                   height: geo.size.height + (isDragging ? 20 : 12))
                             .blur(radius: 4)
                         Capsule()
                             .fill(Color.white)
-                            .frame(width: isDragging ? 4 : 3, height: geo.size.height + (isDragging ? 16 : 10))
+                            .frame(width: isDragging ? 4 : 3,
+                                   height: geo.size.height + (isDragging ? 16 : 10))
                             .shadow(color: .black.opacity(0.5), radius: 2)
                     }
                     .offset(x: xPos - 2)
@@ -332,25 +342,21 @@ struct ThumbnailScrubber: View {
         }
     }
 
-    // Nearest pre-generated thumbnail for the current drag position
     private var previewImage: UIImage? {
         guard !model.thumbnails.isEmpty, model.duration > 0 else { return nil }
         let progress = (model.currentTime / model.duration).clamped(to: 0...1)
         let idx = Int(progress * Double(model.thumbnails.count - 1))
-        return model.thumbnails[idx.clamped(to: 0...(model.thumbnails.count - 1))]
+            .clamped(to: 0...(model.thumbnails.count - 1))
+        return model.thumbnails[idx]
     }
 
-    // Popup sits in a ZStack whose natural centre is width/2.
-    // We want the popup centre to follow dragX, so offset = dragX - width/2.
-    // Clamp so the popup never clips outside the scrubber strip.
     private func previewOffsetX(in width: CGFloat) -> CGFloat {
-        let popupHalfWidth: CGFloat = 30          // ~54 pt wide at height 96, half = 27; use 30 as safe margin
-        let clampedX = dragX.clamped(to: popupHalfWidth...(width - popupHalfWidth))
-        return clampedX - width / 2
+        let half: CGFloat = 30
+        return dragX.clamped(to: half...(width - half)) - width / 2
     }
 }
 
-// MARK: - AVPlayerViewController wrapper (no native controls)
+// MARK: - Video container (hides native playback controls)
 
 private struct VideoContainer: UIViewControllerRepresentable {
     let player: AVPlayer

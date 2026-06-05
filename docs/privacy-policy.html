@@ -9,177 +9,329 @@
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
-      background: #f5f5f7;
-      color: #1d1d1f;
-      line-height: 1.7;
+      background: #0a1e38;
+      color: #e8edf2;
+      line-height: 1.75;
+      min-height: 100vh;
     }
 
+    /* ── 漸層背景（與 App HomeView 一致） ── */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(135deg, #0b2849 0%, #063838 100%);
+      z-index: -1;
+    }
+
+    /* ── Header ── */
     header {
-      background: #0a2540;
-      color: #fff;
-      padding: 48px 24px 40px;
       text-align: center;
+      padding: 64px 24px 48px;
+    }
+
+    .app-icon {
+      width: 80px;
+      height: 80px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, #1a4a7a, #0d5c5c);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      font-size: 36px;
     }
 
     header h1 {
-      font-size: 2rem;
+      font-size: 2.2rem;
       font-weight: 700;
       letter-spacing: -0.5px;
+      color: #fff;
     }
 
-    header p {
-      margin-top: 8px;
+    header .subtitle {
+      margin-top: 6px;
       font-size: 0.95rem;
-      opacity: 0.7;
+      color: rgba(255,255,255,0.5);
+      letter-spacing: 0.5px;
     }
 
+    /* ── Main content ── */
     main {
-      max-width: 720px;
-      margin: 40px auto;
-      padding: 0 24px 64px;
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 0 20px 80px;
     }
 
-    section {
-      background: #fff;
-      border-radius: 16px;
-      padding: 32px;
-      margin-bottom: 20px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    /* ── Cards ── */
+    .card {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 18px;
+      padding: 28px 28px 24px;
+      margin-bottom: 16px;
+      backdrop-filter: blur(12px);
+    }
+
+    .card-intro {
+      background: rgba(255,255,255,0.04);
+      border-color: rgba(255,255,255,0.07);
     }
 
     h2 {
-      font-size: 1.1rem;
+      font-size: 0.78rem;
       font-weight: 600;
-      margin-bottom: 16px;
-      color: #0a2540;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.4);
+      margin-bottom: 14px;
     }
 
-    p { margin-bottom: 12px; font-size: 0.97rem; }
+    p {
+      font-size: 0.96rem;
+      color: rgba(255,255,255,0.75);
+      margin-bottom: 10px;
+    }
+
     p:last-child { margin-bottom: 0; }
 
+    /* ── Table ── */
     table {
       width: 100%;
       border-collapse: collapse;
-      margin: 12px 0;
-      font-size: 0.95rem;
-    }
-
-    th, td {
-      text-align: left;
-      padding: 10px 14px;
-      border-bottom: 1px solid #f0f0f0;
+      font-size: 0.94rem;
     }
 
     th {
-      background: #f5f5f7;
+      text-align: left;
+      padding: 8px 12px;
+      color: rgba(255,255,255,0.4);
       font-weight: 600;
-      color: #555;
-    }
-
-    ul {
-      padding-left: 20px;
-      margin: 8px 0;
-      font-size: 0.97rem;
-    }
-
-    ul li { margin-bottom: 6px; }
-
-    .badge {
-      display: inline-block;
-      background: #e8f4e8;
-      color: #2d6a2d;
       font-size: 0.8rem;
-      font-weight: 600;
-      padding: 2px 10px;
-      border-radius: 20px;
-      margin-bottom: 12px;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
     }
 
+    td {
+      padding: 12px 12px;
+      color: rgba(255,255,255,0.75);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      vertical-align: top;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    td:first-child {
+      font-weight: 600;
+      color: rgba(255,255,255,0.9);
+      white-space: nowrap;
+      width: 100px;
+    }
+
+    /* ── List ── */
+    ul {
+      padding-left: 0;
+      list-style: none;
+    }
+
+    ul li {
+      font-size: 0.95rem;
+      color: rgba(255,255,255,0.75);
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    ul li:last-child { border-bottom: none; }
+
+    ul li::before {
+      content: "✕";
+      color: #ff6b6b;
+      font-size: 0.75rem;
+      font-weight: 700;
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+
+    ul.check li::before {
+      content: "✓";
+      color: #4cd964;
+    }
+
+    /* ── Badge ── */
+    .date-badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: rgba(255,255,255,0.5);
+      font-size: 0.78rem;
+      padding: 3px 12px;
+      border-radius: 20px;
+      margin-bottom: 14px;
+    }
+
+    /* ── Contact ── */
+    .contact-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      font-size: 0.94rem;
+    }
+
+    .contact-row:last-child { border-bottom: none; }
+
+    .contact-label {
+      color: rgba(255,255,255,0.4);
+      font-size: 0.8rem;
+      width: 48px;
+      flex-shrink: 0;
+    }
+
+    .contact-value {
+      color: rgba(255,255,255,0.85);
+    }
+
+    .contact-value a {
+      color: #5ac8fa;
+      text-decoration: none;
+    }
+
+    /* ── Footer ── */
     footer {
       text-align: center;
-      font-size: 0.85rem;
-      color: #999;
-      padding-bottom: 40px;
+      padding: 0 24px 48px;
+      font-size: 0.82rem;
+      color: rgba(255,255,255,0.25);
+      line-height: 1.8;
     }
-
-    a { color: #0a2540; }
   </style>
 </head>
 <body>
 
 <header>
+  <div class="app-icon">⏱</div>
   <h1>ReplayCam</h1>
-  <p>隱私權政策 &nbsp;｜&nbsp; Privacy Policy</p>
+  <p class="subtitle">隱私權政策 &nbsp;·&nbsp; Privacy Policy</p>
 </header>
 
 <main>
 
-  <section>
-    <span class="badge">最後更新 2026 年 6 月 4 日</span>
+  <!-- 前言 -->
+  <div class="card card-intro">
+    <span class="date-badge">最後更新：2026 年 6 月 4 日</span>
     <p>
-      國家運動科學中心（TISS）開發之 ReplayCam 應用程式致力於保護使用者的隱私。
-      本政策說明本應用程式如何處理您的資料。
+      國家運動科學中心（TISS）開發之 ReplayCam 致力於保護使用者的隱私。
+      本應用程式為運動訓練延遲回放工具，所有資料處理均在您的裝置本地進行，不涉及任何雲端或伺服器。
     </p>
-  </section>
+  </div>
 
-  <section>
-    <h2>一、存取的裝置功能</h2>
+  <!-- 存取的裝置功能 -->
+  <div class="card">
+    <h2>存取的裝置功能</h2>
     <table>
-      <tr><th>功能</th><th>用途</th></tr>
-      <tr><td>相機</td><td>錄製影像以提供延遲回放功能</td></tr>
-      <tr><td>相片圖庫</td><td>將錄製的影片儲存至您的裝置</td></tr>
+      <tr>
+        <th>功能</th>
+        <th>用途</th>
+      </tr>
+      <tr>
+        <td>相機</td>
+        <td>錄製影像以提供即時延遲回放，幫助使用者觀察動作細節</td>
+      </tr>
+      <tr>
+        <td>相片圖庫</td>
+        <td>將錄製完成的影片片段儲存至您的裝置本機</td>
+      </tr>
     </table>
-  </section>
+  </div>
 
-  <section>
-    <h2>二、我們不收集的資料</h2>
+  <!-- 不收集的資料 -->
+  <div class="card">
+    <h2>我們不收集的資料</h2>
     <ul>
       <li>個人身份資訊（姓名、Email、電話等）</li>
       <li>位置資訊</li>
-      <li>裝置識別碼</li>
-      <li>使用行為或分析資料</li>
+      <li>裝置識別碼或廣告 ID</li>
+      <li>使用行為、分析或崩潰報告</li>
+      <li>任何生物特徵資料</li>
     </ul>
-  </section>
+  </div>
 
-  <section>
-    <h2>三、資料的使用方式</h2>
-    <p>所有影像處理均在您的裝置本地執行，錄製的影片不會上傳至任何伺服器。</p>
-    <p>本應用程式不使用任何第三方分析工具或廣告服務。</p>
-  </section>
-
-  <section>
-    <h2>四、資料分享</h2>
-    <p>本中心不會將您的任何資料出售給第三方、用於廣告目的，或與任何外部機構共享。</p>
-  </section>
-
-  <section>
-    <h2>五、資料刪除</h2>
-    <p>所有影片儲存於您裝置的本機空間，您可以隨時透過以下方式刪除：</p>
-    <ul>
-      <li>在應用程式內的片段庫中刪除</li>
-      <li>解除安裝本應用程式</li>
+  <!-- 資料使用方式 -->
+  <div class="card">
+    <h2>資料的使用方式</h2>
+    <ul class="check">
+      <li>所有影像處理均在您的裝置本地執行</li>
+      <li>錄製的影片僅儲存於您的裝置，不上傳至任何伺服器</li>
+      <li>本應用程式不整合任何第三方分析、廣告或追蹤服務</li>
     </ul>
-  </section>
+  </div>
 
-  <section>
-    <h2>六、兒童隱私</h2>
-    <p>本應用程式不針對 13 歲以下兒童設計，亦不收集兒童個人資料。</p>
-  </section>
-
-  <section>
-    <h2>七、聯絡我們</h2>
-    <p>若您對本隱私權政策有任何疑問，歡迎與我們聯繫：</p>
+  <!-- 資料分享 -->
+  <div class="card">
+    <h2>資料分享</h2>
     <p>
-      <strong>國家運動科學中心（TISS）</strong><br />
-      網址：<a href="https://www.tiss.org.tw">www.tiss.org.tw</a><br />
-      Email：（請填入中心聯絡信箱）
+      本中心不會將您的任何資料出售、租借或以其他方式提供給第三方，
+      亦不用於任何廣告或商業目的。
     </p>
-  </section>
+  </div>
+
+  <!-- 資料刪除 -->
+  <div class="card">
+    <h2>資料刪除</h2>
+    <p>您可以隨時透過以下方式刪除所有本地資料：</p>
+    <ul class="check">
+      <li>在 App 片段庫中選擇並刪除個別影片</li>
+      <li>於設定頁面「清除所有片段」一次清空</li>
+      <li>直接從裝置解除安裝本應用程式</li>
+    </ul>
+  </div>
+
+  <!-- 兒童隱私 -->
+  <div class="card">
+    <h2>兒童隱私</h2>
+    <p>
+      本應用程式不針對 13 歲以下兒童設計，亦不刻意收集兒童個人資料。
+    </p>
+  </div>
+
+  <!-- 政策變更 -->
+  <div class="card">
+    <h2>本政策的變更</h2>
+    <p>
+      若本隱私權政策有所變更，將於本頁面更新內容及修訂日期。
+      建議您定期查閱本頁面。
+    </p>
+  </div>
+
+  <!-- 聯絡我們 -->
+  <div class="card">
+    <h2>聯絡我們</h2>
+    <div class="contact-row">
+      <span class="contact-label">單位</span>
+      <span class="contact-value">國家運動科學中心（TISS）</span>
+    </div>
+    <div class="contact-row">
+      <span class="contact-label">網址</span>
+      <span class="contact-value">
+        <a href="https://www.tiss.org.tw" target="_blank">www.tiss.org.tw</a>
+      </span>
+    </div>
+    <div class="contact-row">
+      <span class="contact-label">Email</span>
+      <span class="contact-value">（請填入中心聯絡信箱）</span>
+    </div>
+  </div>
 
 </main>
 
 <footer>
-  &copy; 2026 國家運動科學中心 &nbsp;｜&nbsp; Taiwan Institute of Sports Science
+  &copy; 2026 國家運動科學中心<br />
+  Taiwan Institute of Sports Science
 </footer>
 
 </body>

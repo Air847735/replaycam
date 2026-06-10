@@ -267,6 +267,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ReplayCam/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "此應用程式需要使用相機錄影與延遲顯示";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "此應用程式需要麥克風權限以錄製影片聲音與延遲回放";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "此應用程式需要儲存錄製的影片到相簿";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "此應用程式需要存取相簿";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -317,6 +318,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ReplayCam/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "此應用程式需要使用相機錄影與延遲顯示";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "此應用程式需要麥克風權限以錄製影片聲音與延遲回放";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "此應用程式需要儲存錄製的影片到相簿";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "此應用程式需要存取相簿";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;

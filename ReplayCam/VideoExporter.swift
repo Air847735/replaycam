@@ -6,7 +6,9 @@ enum VideoExporter {
     private static let portraitSize  = CGSize(width: 1080, height: 1920)
     private static let landscapeSize = CGSize(width: 1920, height: 1080)
 
-    static func export(frames: [TimestampedFrame], fps: Int32 = 30) async throws -> URL {
+    static func export(frames: [TimestampedFrame],
+                       audioSamples: [CMSampleBuffer] = [],
+                       fps: Int32 = 30) async throws -> URL {
         // Auto-detect orientation from the first stored frame
         let firstSize = UIImage(data: frames[0].jpegData)?.size ?? CGSize(width: 1080, height: 1920)
         let exportSize = firstSize.width > firstSize.height ? landscapeSize : portraitSize
@@ -34,6 +36,26 @@ enum VideoExporter {
             ]
         )
 
+        // Audio track (optional)
+        var audioInput: AVAssetWriterInput? = nil
+        if !audioSamples.isEmpty,
+           let firstAudio = audioSamples.first,
+           let desc = CMSampleBufferGetFormatDescription(firstAudio) {
+            let audioSettings: [String: Any] = [
+                AVFormatIDKey: kAudioFormatMPEG4AAC,
+                AVSampleRateKey: 44100,
+                AVNumberOfChannelsKey: 1,
+                AVEncoderBitRateKey: 128_000
+            ]
+            let ai = AVAssetWriterInput(mediaType: .audio, outputSettings: audioSettings,
+                                        sourceFormatHint: desc)
+            ai.expectsMediaDataInRealTime = false
+            if writer.canAdd(ai) {
+                writer.add(ai)
+                audioInput = ai
+            }
+        }
+
         guard writer.canAdd(input) else { throw ExportError.cannotAddInput }
         writer.add(input)
         guard writer.startWriting() else { throw writer.error ?? ExportError.startFailed }
@@ -51,7 +73,17 @@ enum VideoExporter {
                         finished = true
                         input.markAsFinished()
                         writer.finishWriting {
-                            writer.status == .completed
+                            // Write audio samples
+                    if let ai = audioInput {
+                        for sample in audioSamples {
+                            if ai.isReadyForMoreMediaData {
+                                ai.append(sample)
+                            }
+                        }
+                        ai.markAsFinished()
+                    }
+
+                    writer.status == .completed
                                 ? cont.resume()
                                 : cont.resume(throwing: writer.error ?? ExportError.exportFailed)
                         }

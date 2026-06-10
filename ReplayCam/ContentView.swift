@@ -269,7 +269,7 @@ struct ContentView: View {
 
     private var controlPanel: some View {
         HStack(alignment: .center, spacing: 14) {
-            // Camera switch + mirror buttons
+            // Camera switch + mirror + mic buttons
             VStack(spacing: 8) {
                 Button {
                     camera.switchCamera()
@@ -288,6 +288,17 @@ struct ContentView: View {
                     Image(systemName: "arrow.left.and.right.righttriangle.left.righttriangle.right")
                         .font(.system(size: 15, weight: .medium))
                         .foregroundColor(isMirrored ? .yellow : .white)
+                        .frame(width: 40, height: 40)
+                        .background(.ultraThinMaterial, in: Circle())
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    camera.setMicrophone(enabled: !camera.isMicrophoneEnabled)
+                } label: {
+                    Image(systemName: camera.isMicrophoneEnabled ? "mic.fill" : "mic.slash.fill")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(camera.isMicrophoneEnabled ? .yellow : .white)
                         .frame(width: 40, height: 40)
                         .background(.ultraThinMaterial, in: Circle())
                 }

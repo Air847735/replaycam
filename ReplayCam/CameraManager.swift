@@ -24,6 +24,12 @@ final class CameraManager: NSObject, ObservableObject {
     nonisolated(unsafe) var cameraPosition: AVCaptureDevice.Position = .back
 
     @Published var currentPosition: AVCaptureDevice.Position = .back
+    @Published var isMicrophoneEnabled: Bool = false
+
+    nonisolated(unsafe) private let audioBuffer = AudioBuffer()
+    nonisolated(unsafe) private let audioPlayer = AudioDelayPlayer()
+    nonisolated(unsafe) private var audioFormat: AVAudioFormat? = nil
+    private var audioTick: AnyCancellable?
 
     // JPEG quality key for CIContext
     private static let jpegQualityKey = CIImageRepresentationOption(
@@ -72,10 +78,15 @@ final class CameraManager: NSObject, ObservableObject {
         let frames = frameBuffer.frames(since: now - duration)
         guard !frames.isEmpty else { return }
 
+        let audioSamples = isMicrophoneEnabled ? audioBuffer.samples(since: now - duration) : []
         isSaving = true
         Task.detached(priority: .userInitiated) { [weak self] in
             do {
-                let tempURL = try await VideoExporter.export(frames: frames, fps: self?.targetFPS ?? 30)
+                let tempURL = try await VideoExporter.export(
+                    frames: frames,
+                    audioSamples: audioSamples,
+                    fps: self?.targetFPS ?? 30
+                )
                 // Move to persistent clips directory (in-app library)
                 let _ = try VideoExporter.moveToClipsDirectory(from: tempURL)
                 await MainActor.run {
@@ -91,6 +102,18 @@ final class CameraManager: NSObject, ObservableObject {
     }
 
     // MARK: - Private
+
+    func setMicrophone(enabled: Bool) {
+        isMicrophoneEnabled = enabled
+        if enabled {
+            addAudioInput()
+        } else {
+            audioPlayer.stop()
+            audioTick?.cancel()
+            audioBuffer.clear()
+            removeAudioInput()
+        }
+    }
 
     func switchCamera() {
         let newPosition: AVCaptureDevice.Position = (cameraPosition == .back) ? .front : .back
@@ -207,6 +230,53 @@ final class CameraManager: NSObject, ObservableObject {
         }
     }
 
+    private func addAudioInput() {
+        guard let session = captureSession,
+              let mic = AVCaptureDevice.default(for: .audio),
+              let input = try? AVCaptureDeviceInput(device: mic),
+              session.canAddInput(input) else { return }
+
+        session.beginConfiguration()
+        session.addInput(input)
+
+        let audioOut = AVCaptureAudioDataOutput()
+        audioOut.setSampleBufferDelegate(self, queue: frameQueue)
+        if session.canAddOutput(audioOut) { session.addOutput(audioOut) }
+        session.commitConfiguration()
+
+        // Derive AVAudioFormat from the mic device
+        let sampleRate = 44100.0
+        audioFormat = AVAudioFormat(commonFormat: .pcmFormatInt16,
+                                    sampleRate: sampleRate,
+                                    channels: 1,
+                                    interleaved: false)
+        if let fmt = audioFormat {
+            audioPlayer.delaySeconds = delaySeconds
+            audioPlayer.start(format: fmt)
+        }
+
+        // Tick every 100ms to schedule delayed audio
+        audioTick = Timer.publish(every: 0.1, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.audioPlayer.delaySeconds = self.delaySeconds
+                self.audioPlayer.tick(audioBuffer: self.audioBuffer)
+            }
+    }
+
+    private func removeAudioInput() {
+        guard let session = captureSession else { return }
+        session.beginConfiguration()
+        for input in session.inputs where (input as? AVCaptureDeviceInput)?.device.hasMediaType(.audio) == true {
+            session.removeInput(input)
+        }
+        for output in session.outputs where output is AVCaptureAudioDataOutput {
+            session.removeOutput(output)
+        }
+        session.commitConfiguration()
+    }
+
     private func avOrientation(for o: UIDeviceOrientation) -> AVCaptureVideoOrientation {
         switch o {
         case .landscapeLeft:      return .landscapeRight
@@ -217,14 +287,20 @@ final class CameraManager: NSObject, ObservableObject {
     }
 }
 
-// MARK: - AVCaptureVideoDataOutputSampleBufferDelegate
+// MARK: - AVCaptureVideoDataOutputSampleBufferDelegate + AVCaptureAudioDataOutputSampleBufferDelegate
 
-extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
+extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureAudioDataOutputSampleBufferDelegate {
     nonisolated func captureOutput(
         _ output: AVCaptureOutput,
         didOutput sampleBuffer: CMSampleBuffer,
         from connection: AVCaptureConnection
     ) {
+        // Audio samples — store in audioBuffer for delayed playback and export
+        if output is AVCaptureAudioDataOutput {
+            audioBuffer.append(sampleBuffer)
+            return
+        }
+
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
 
         let now = Date().timeIntervalSince1970

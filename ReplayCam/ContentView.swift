@@ -8,6 +8,7 @@ struct ContentView: View {
     @AppStorage("defaultCamera") private var defaultCamera: String = "back"
     @State private var selectedDelay: Double = 3.0   // local copy, does not write back to AppStorage
     @State private var saveDuration: Double = 10.0
+    @State private var isMirrored: Bool = false
 
     @State private var controlsVisible = true
     @Environment(\.dismiss) private var dismiss
@@ -130,8 +131,12 @@ struct ContentView: View {
             camera.setDelay(selectedDelay)
             camera.applyFPSSetting(recordingFPS)
             camera.cameraPosition = (defaultCamera == "front") ? .front : .back
+            isMirrored = (defaultCamera == "front")
             camera.checkPermissions()
             saveDuration = min(saveDuration, saveRange.upperBound)
+        }
+        .onChange(of: camera.currentPosition) { _, newPos in
+            isMirrored = (newPos == .front)
         }
         .alert("儲存成功", isPresented: $camera.showSuccess) {
             Button("確定", role: .cancel) {}
@@ -162,6 +167,7 @@ struct ContentView: View {
                 Image(uiImage: img)
                     .resizable()
                     .scaledToFill()
+                    .scaleEffect(x: isMirrored ? -1 : 1, y: 1)
             } else {
                 cameraPlaceholder
             }
@@ -230,6 +236,7 @@ struct ContentView: View {
                     Image(uiImage: img)
                         .resizable()
                         .scaledToFill()
+                        .scaleEffect(x: isMirrored ? -1 : 1, y: 1)
                         .frame(width: w, height: h)
                         .clipped()
                 } else {
@@ -262,17 +269,30 @@ struct ContentView: View {
 
     private var controlPanel: some View {
         HStack(alignment: .center, spacing: 14) {
-            // Camera switch button
-            Button {
-                camera.switchCamera()
-            } label: {
-                Image(systemName: "arrow.triangle.2.circlepath.camera")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(.white)
-                    .frame(width: 44, height: 44)
-                    .background(.ultraThinMaterial, in: Circle())
+            // Camera switch + mirror buttons
+            VStack(spacing: 8) {
+                Button {
+                    camera.switchCamera()
+                } label: {
+                    Image(systemName: "arrow.triangle.2.circlepath.camera")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(.white)
+                        .frame(width: 40, height: 40)
+                        .background(.ultraThinMaterial, in: Circle())
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    isMirrored.toggle()
+                } label: {
+                    Image(systemName: "arrow.left.and.right.righttriangle.left.righttriangle.right")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(isMirrored ? .yellow : .white)
+                        .frame(width: 40, height: 40)
+                        .background(.ultraThinMaterial, in: Circle())
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
 
             // Sliders (take all remaining width)
             VStack(spacing: 12) {

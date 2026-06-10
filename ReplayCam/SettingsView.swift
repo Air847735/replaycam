@@ -88,6 +88,14 @@ struct SettingsView: View {
                         Label("清除所有片段", systemImage: "trash")
                     }
                     .disabled(store.clips.isEmpty)
+                    .confirmationDialog("確定要刪除所有片段嗎？", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
+                        Button("刪除全部", role: .destructive) {
+                            store.clips.forEach { store.delete($0) }
+                        }
+                        Button("取消", role: .cancel) {}
+                    } message: {
+                        Text("此操作無法還原，相簿中的影片不受影響")
+                    }
                 }
 
                 // ── About ────────────────────────────────────────────────────
@@ -99,14 +107,6 @@ struct SettingsView: View {
             .scrollContentBackground(.hidden)
         }
         .navigationTitle("設定")
-        .confirmationDialog("確定要刪除所有片段嗎？", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
-            Button("刪除全部", role: .destructive) {
-                store.clips.forEach { store.delete($0) }
-            }
-            Button("取消", role: .cancel) {}
-        } message: {
-            Text("此操作無法還原，相簿中的影片不受影響")
-        }
     }
 
     // MARK: - Helpers

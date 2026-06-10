@@ -31,6 +31,7 @@ struct ContentView: View {
 
     var body: some View {
         GeometryReader { geo in
+            let insets = geo.safeAreaInsets
             ZStack {
                 // ── Delayed feed ────────────────────────────────────────────
                 delayedBackground(size: geo.size)
@@ -49,12 +50,12 @@ struct ContentView: View {
                                 Image(systemName: "chevron.left")
                                     .font(.system(size: 19, weight: .semibold))
                                     .foregroundColor(.white)
-                                    .padding(14)
+                                    .frame(width: 48, height: 48)
                                     .background(.ultraThinMaterial, in: Circle())
                                     .shadow(color: .black.opacity(0.3), radius: 4)
                             }
-                            .padding(.leading, 20)
-                            .padding(.top, 56)
+                            .padding(.leading, max(insets.leading + 12, 20))
+                            .padding(.top, max(insets.top + 20, 28))
                             Spacer()
                         }
                         Spacer()
@@ -79,7 +80,7 @@ struct ContentView: View {
                 if controlsVisible {
                     VStack {
                         Spacer()
-                        controlPanel
+                        controlPanel(safeAreaInsets: insets)
                     }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
@@ -148,7 +149,7 @@ struct ContentView: View {
     // MARK: - Preview positioning
 
     private func defaultPreviewPos(in size: CGSize) -> CGPoint {
-        CGPoint(x: size.width - 90, y: size.height - 280)
+        CGPoint(x: size.width * 0.85, y: size.height * 0.60)
     }
 
     private func clampPreview(_ point: CGPoint, in size: CGSize) -> CGPoint {
@@ -267,49 +268,58 @@ struct ContentView: View {
 
     // MARK: - Control panel
 
-    private var controlPanel: some View {
-        HStack(alignment: .center, spacing: 14) {
-            // Camera switch + mirror buttons
-            VStack(spacing: 8) {
-                Button {
-                    camera.switchCamera()
-                } label: {
-                    Image(systemName: "arrow.triangle.2.circlepath.camera")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(.white)
-                        .frame(width: 40, height: 40)
-                        .background(.ultraThinMaterial, in: Circle())
-                }
-                .buttonStyle(.plain)
+    private func controlPanel(safeAreaInsets: EdgeInsets) -> some View {
+        let isLandscape = UIScreen.main.bounds.width > UIScreen.main.bounds.height
+        let bottomPad   = max(safeAreaInsets.bottom, 12)
+        let sidePad     = max(safeAreaInsets.leading, 20)
 
-                Button {
-                    isMirrored.toggle()
-                } label: {
-                    Image(systemName: "arrow.left.and.right.righttriangle.left.righttriangle.right")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(isMirrored ? .yellow : .white)
-                        .frame(width: 40, height: 40)
-                        .background(.ultraThinMaterial, in: Circle())
-                }
-                .buttonStyle(.plain)
+        return HStack(alignment: .center, spacing: 14) {
+            // Camera switch + mirror buttons
+            if isLandscape {
+                // In landscape, lay them side by side to save vertical space
+                HStack(spacing: 8) { cameraButton; mirrorButton }
+            } else {
+                VStack(spacing: 8) { cameraButton; mirrorButton }
             }
 
-            // Sliders (take all remaining width)
-            VStack(spacing: 12) {
+            // Sliders
+            VStack(spacing: isLandscape ? 8 : 12) {
                 delaySlider
                 saveDurationSlider
             }
-            // Save button (compact, spans both slider rows)
+
             saveButton
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 14)
-        .padding(.bottom, 28)
+        .padding(.horizontal, sidePad)
+        .padding(.top, isLandscape ? 10 : 14)
+        .padding(.bottom, isLandscape ? max(bottomPad, 8) : bottomPad + 8)
         .background(
             Rectangle()
                 .fill(.ultraThinMaterial)
                 .ignoresSafeArea(edges: .bottom)
         )
+    }
+
+    private var cameraButton: some View {
+        Button { camera.switchCamera() } label: {
+            Image(systemName: "arrow.triangle.2.circlepath.camera")
+                .font(.system(size: 18, weight: .medium))
+                .foregroundColor(.white)
+                .frame(width: 40, height: 40)
+                .background(.ultraThinMaterial, in: Circle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var mirrorButton: some View {
+        Button { isMirrored.toggle() } label: {
+            Image(systemName: "arrow.left.and.right.righttriangle.left.righttriangle.right")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundColor(isMirrored ? .yellow : .white)
+                .frame(width: 40, height: 40)
+                .background(.ultraThinMaterial, in: Circle())
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Shared slider row

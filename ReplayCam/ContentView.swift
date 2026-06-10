@@ -3,6 +3,7 @@
 struct ContentView: View {
     @StateObject private var camera = CameraManager()
     @AppStorage("defaultDelay") private var selectedDelay: Double = 3.0
+    @AppStorage("recordingFPS") private var recordingFPS: Int = 30
     @State private var saveDuration: Double = 10.0
 
     @State private var controlsVisible = true
@@ -117,6 +118,7 @@ struct ContentView: View {
         .ignoresSafeArea()
         .onAppear {
             camera.setDelay(selectedDelay)
+            camera.applyFPSSetting(recordingFPS)
             camera.checkPermissions()
         }
         .alert("儲存成功", isPresented: $camera.showSuccess) {

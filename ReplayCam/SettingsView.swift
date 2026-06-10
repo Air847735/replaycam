@@ -2,8 +2,16 @@ import SwiftUI
 
 struct SettingsView: View {
     @AppStorage("defaultDelay") private var defaultDelay: Double = 3.0
+    @AppStorage("recordingFPS") private var recordingFPS: Int = 30
     @ObservedObject private var store = ClipStore.shared
     @State private var showDeleteConfirm = false
+
+    private var supportedFPS: [Int] {
+        // 120fps only on ProMotion devices (iPhone 13 Pro+)
+        let device = UIDevice.current.model
+        let supports120 = ProcessInfo.processInfo.processorCount >= 6
+        return supports120 ? [30, 60, 120] : [30, 60]
+    }
 
     var body: some View {
         ZStack {
@@ -37,6 +45,20 @@ struct SettingsView: View {
                         Slider(value: $defaultDelay, in: 1...30, step: 1)
                             .tint(.blue)
                         Text("開啟拍攝時預設的延遲秒數")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 4)
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Label("錄影幀率", systemImage: "speedometer")
+                        Picker("", selection: $recordingFPS) {
+                            ForEach(supportedFPS, id: \.self) { fps in
+                                Text("\(fps) fps").tag(fps)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        Text(fpsDescription)
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -76,6 +98,14 @@ struct SettingsView: View {
     }
 
     // MARK: - Helpers
+
+    private var fpsDescription: String {
+        switch recordingFPS {
+        case 120: return "超高幀率，最多可儲存 20 秒，需 iPhone 13 Pro 以上"
+        case 60:  return "高幀率，最多可儲存 30 秒，動作細節更流暢"
+        default:  return "標準幀率，最多可儲存 35 秒"
+        }
+    }
 
     private var storageUsed: String {
         let fm = FileManager.default

@@ -20,6 +20,7 @@ final class CameraManager: NSObject, ObservableObject {
     nonisolated(unsafe) var delaySeconds: Double = 3.0
     nonisolated(unsafe) private var videoConnection: AVCaptureConnection?
     nonisolated(unsafe) private var frameCount = 0   // used for periodic cache flush
+    nonisolated(unsafe) var targetFPS: Int32 = 30    // set before setupCamera()
 
     // JPEG quality key for CIContext
     private static let jpegQualityKey = CIImageRepresentationOption(
@@ -71,7 +72,7 @@ final class CameraManager: NSObject, ObservableObject {
         isSaving = true
         Task.detached(priority: .userInitiated) { [weak self] in
             do {
-                let tempURL = try await VideoExporter.export(frames: frames)
+                let tempURL = try await VideoExporter.export(frames: frames, fps: self?.targetFPS ?? 30)
                 // Move to persistent clips directory (in-app library)
                 let _ = try VideoExporter.moveToClipsDirectory(from: tempURL)
                 await MainActor.run {
@@ -87,6 +88,22 @@ final class CameraManager: NSObject, ObservableObject {
     }
 
     // MARK: - Private
+
+    // Call this before checkPermissions() to apply fps setting
+    func applyFPSSetting(_ fps: Int) {
+        targetFPS = Int32(fps)
+        switch fps {
+        case 120:
+            frameBuffer.maxDuration = 20.0
+            frameBuffer.earlyPurgeThreshold = 2400
+        case 60:
+            frameBuffer.maxDuration = 30.0
+            frameBuffer.earlyPurgeThreshold = 1800
+        default:
+            frameBuffer.maxDuration = 35.0
+            frameBuffer.earlyPurgeThreshold = 1200
+        }
+    }
 
     private func setupCamera() {
         sessionQueue.async { [weak self] in
@@ -106,11 +123,21 @@ final class CameraManager: NSObject, ObservableObject {
             }
             session.addInput(input)
 
-            // Cap at 30 fps — newer iPhones can auto-select 60 fps which doubles CPU load
+            // Apply user-selected fps (30 / 60 / 120)
+            let fps = self.targetFPS
             if let device = (session.inputs.first as? AVCaptureDeviceInput)?.device {
+                // Find a format that supports the requested fps
+                let supportedFormat = device.formats.last { format in
+                    format.videoSupportedFrameRateRanges.contains {
+                        $0.maxFrameRate >= Double(fps)
+                    }
+                }
                 try? device.lockForConfiguration()
-                device.activeVideoMinFrameDuration = CMTime(value: 1, timescale: 30)
-                device.activeVideoMaxFrameDuration = CMTime(value: 1, timescale: 30)
+                if let format = supportedFormat, fps > 30 {
+                    device.activeFormat = format
+                }
+                device.activeVideoMinFrameDuration = CMTime(value: 1, timescale: fps)
+                device.activeVideoMaxFrameDuration = CMTime(value: 1, timescale: fps)
                 device.unlockForConfiguration()
             }
 

@@ -6,7 +6,8 @@ final class FrameBuffer: @unchecked Sendable {
 
     private var frames: [TimestampedFrame] = []
     private let lock = NSLock()
-    private let maxDuration: TimeInterval = 35.0
+    var maxDuration: TimeInterval = 35.0   // adjusted externally based on fps
+    var earlyPurgeThreshold: Int = 1200   // adjusted externally based on fps
     private var appendCount = 0
 
     // MARK: - Public read-only properties
@@ -30,7 +31,7 @@ final class FrameBuffer: @unchecked Sendable {
             appendCount += 1
 
             // Purge once per second (~30 frames) or when the array is very large.
-            if appendCount % 30 == 0 || frames.count > 1200 {
+            if appendCount % 30 == 0 || frames.count > earlyPurgeThreshold {
                 purgeOldFrames(before: frame.timestamp - maxDuration)
             }
         }

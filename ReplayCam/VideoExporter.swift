@@ -6,7 +6,7 @@ enum VideoExporter {
     private static let portraitSize  = CGSize(width: 1080, height: 1920)
     private static let landscapeSize = CGSize(width: 1920, height: 1080)
 
-    static func export(frames: [TimestampedFrame]) async throws -> URL {
+    static func export(frames: [TimestampedFrame], fps: Int32 = 30) async throws -> URL {
         // Auto-detect orientation from the first stored frame
         let firstSize = UIImage(data: frames[0].jpegData)?.size ?? CGSize(width: 1080, height: 1920)
         let exportSize = firstSize.width > firstSize.height ? landscapeSize : portraitSize
@@ -39,7 +39,7 @@ enum VideoExporter {
         guard writer.startWriting() else { throw writer.error ?? ExportError.startFailed }
         writer.startSession(atSourceTime: .zero)
 
-        let frameDuration = CMTime(value: 1, timescale: 30)
+        let frameDuration = CMTime(value: 1, timescale: fps)
         try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
             var index = 0
             var finished = false

@@ -23,64 +23,95 @@ struct HomeView: View {
                     .opacity(0.13)
 
                 // ── Content ─────────────────────────────────────────────────
-                VStack(alignment: .leading, spacing: 24) {
-
-                    // ── App name ───────────────────────────────────────────
-                    Text("ReplayCam")
-                        .font(.system(size: 30, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
-                        .padding(.top, 16)
-
-                    // ── Camera card (large) ────────────────────────────────
-                    Button { showCamera = true } label: {
-                        cameraCard
+                GeometryReader { geo in
+                    let isLandscape = geo.size.width > geo.size.height
+                    if isLandscape {
+                        landscapeLayout
+                    } else {
+                        portraitLayout
                     }
-                    .buttonStyle(.plain)
-
-                    // ── Library + Settings ─────────────────────────────────
-                    HStack(spacing: 16) {
-                        NavigationLink(destination: DateLibraryView()) {
-                            secondaryCard(
-                                icon: "calendar",
-                                title: "日期記錄",
-                                subtitle: store.clips.isEmpty
-                                    ? "尚無片段"
-                                    : "\(store.clips.count) 個片段"
-                            )
-                        }
-                        .buttonStyle(.plain)
-
-                        NavigationLink(destination: SettingsView()) {
-                            secondaryCard(
-                                icon: "gearshape.fill",
-                                title: "設定",
-                                subtitle: "延遲與偏好"
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-
-                    Spacer()
-
-                    // ── TISS Logo footer ───────────────────────────────────
-                    Image("tiss_logo")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(height: 52)
-                        .padding(.horizontal, 28)
-                        .padding(.vertical, 14)
-                        .frame(maxWidth: .infinity)
-                        .background(Color.white.opacity(0.94),
-                                    in: RoundedRectangle(cornerRadius: 18))
-                        .padding(.bottom, 12)
                 }
-                .padding(.horizontal, 20)
             }
             .toolbar(.hidden, for: .navigationBar)
         }
         .fullScreenCover(isPresented: $showCamera) {
             ContentView()
         }
+    }
+
+    // MARK: - Layouts
+
+    private var portraitLayout: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            Text("ReplayCam")
+                .font(.system(size: 30, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+                .padding(.top, 16)
+
+            Button { showCamera = true } label: { cameraCard }
+                .buttonStyle(.plain)
+
+            HStack(spacing: 16) {
+                NavigationLink(destination: DateLibraryView()) {
+                    secondaryCard(icon: "calendar", title: "日期記錄",
+                                  subtitle: store.clips.isEmpty ? "尚無片段" : "\(store.clips.count) 個片段")
+                }.buttonStyle(.plain)
+                NavigationLink(destination: SettingsView()) {
+                    secondaryCard(icon: "gearshape.fill", title: "設定", subtitle: "延遲與偏好")
+                }.buttonStyle(.plain)
+            }
+
+            Spacer()
+            logoFooter.padding(.bottom, 12)
+        }
+        .padding(.horizontal, 20)
+        .safeAreaPadding(.all)
+    }
+
+    private var landscapeLayout: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            // Title row: ReplayCam ←→ logo
+            HStack(alignment: .center) {
+                Text("ReplayCam")
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                Spacer()
+                Image("tiss_logo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 32)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color.white.opacity(0.94), in: RoundedRectangle(cornerRadius: 12))
+            }
+
+            Button { showCamera = true } label: { cameraCard }
+                .buttonStyle(.plain)
+
+            HStack(spacing: 16) {
+                NavigationLink(destination: DateLibraryView()) {
+                    secondaryCard(icon: "calendar", title: "日期記錄",
+                                  subtitle: store.clips.isEmpty ? "尚無片段" : "\(store.clips.count) 個片段")
+                }.buttonStyle(.plain)
+                NavigationLink(destination: SettingsView()) {
+                    secondaryCard(icon: "gearshape.fill", title: "設定", subtitle: "延遲與偏好")
+                }.buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .safeAreaPadding(.all)
+    }
+
+    private var logoFooter: some View {
+        Image("tiss_logo")
+            .resizable()
+            .scaledToFit()
+            .frame(height: 44)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity)
+            .background(Color.white.opacity(0.94), in: RoundedRectangle(cornerRadius: 16))
     }
 
     // MARK: - Cards

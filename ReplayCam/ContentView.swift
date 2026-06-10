@@ -17,7 +17,13 @@ struct ContentView: View {
 
     private let previewScaleRange: ClosedRange<CGFloat> = 0.8...3.0
 
-    private let saveRange: ClosedRange<Double> = 3...30
+    private var saveRange: ClosedRange<Double> {
+        switch recordingFPS {
+        case 120: return 3...20
+        case 60:  return 3...30
+        default:  return 3...35
+        }
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -120,6 +126,7 @@ struct ContentView: View {
             camera.setDelay(selectedDelay)
             camera.applyFPSSetting(recordingFPS)
             camera.checkPermissions()
+            saveDuration = min(saveDuration, saveRange.upperBound)
         }
         .alert("儲存成功", isPresented: $camera.showSuccess) {
             Button("確定", role: .cancel) {}

@@ -3,9 +3,10 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var camera = CameraManager()
-    @AppStorage("defaultDelay") private var selectedDelay: Double = 3.0
+    @AppStorage("defaultDelay") private var defaultDelay: Double = 3.0
     @AppStorage("recordingFPS") private var recordingFPS: Int = 30
     @AppStorage("defaultCamera") private var defaultCamera: String = "back"
+    @State private var selectedDelay: Double = 3.0   // local copy, does not write back to AppStorage
     @State private var saveDuration: Double = 10.0
 
     @State private var controlsVisible = true
@@ -125,6 +126,7 @@ struct ContentView: View {
         }
         .ignoresSafeArea()
         .onAppear {
+            selectedDelay = defaultDelay
             camera.setDelay(selectedDelay)
             camera.applyFPSSetting(recordingFPS)
             camera.cameraPosition = (defaultCamera == "front") ? .front : .back

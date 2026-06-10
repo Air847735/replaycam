@@ -131,12 +131,12 @@ struct ContentView: View {
             camera.setDelay(selectedDelay)
             camera.applyFPSSetting(recordingFPS)
             camera.cameraPosition = (defaultCamera == "front") ? .front : .back
-            isMirrored = (defaultCamera == "front")
+            isMirrored = false
             camera.checkPermissions()
             saveDuration = min(saveDuration, saveRange.upperBound)
         }
-        .onChange(of: camera.currentPosition) { _, newPos in
-            isMirrored = (newPos == .front)
+        .onChange(of: camera.currentPosition) { _, _ in
+            isMirrored = false
         }
         .alert("儲存成功", isPresented: $camera.showSuccess) {
             Button("確定", role: .cancel) {}

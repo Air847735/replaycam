@@ -1,9 +1,11 @@
-    import SwiftUI
+import AVFoundation
+import SwiftUI
 
 struct ContentView: View {
     @StateObject private var camera = CameraManager()
     @AppStorage("defaultDelay") private var selectedDelay: Double = 3.0
     @AppStorage("recordingFPS") private var recordingFPS: Int = 30
+    @AppStorage("defaultCamera") private var defaultCamera: String = "back"
     @State private var saveDuration: Double = 10.0
 
     @State private var controlsVisible = true
@@ -125,6 +127,7 @@ struct ContentView: View {
         .onAppear {
             camera.setDelay(selectedDelay)
             camera.applyFPSSetting(recordingFPS)
+            camera.cameraPosition = (defaultCamera == "front") ? .front : .back
             camera.checkPermissions()
             saveDuration = min(saveDuration, saveRange.upperBound)
         }
@@ -257,6 +260,18 @@ struct ContentView: View {
 
     private var controlPanel: some View {
         HStack(alignment: .center, spacing: 14) {
+            // Camera switch button
+            Button {
+                camera.switchCamera()
+            } label: {
+                Image(systemName: "arrow.triangle.2.circlepath.camera")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundColor(.white)
+                    .frame(width: 44, height: 44)
+                    .background(.ultraThinMaterial, in: Circle())
+            }
+            .buttonStyle(.plain)
+
             // Sliders (take all remaining width)
             VStack(spacing: 12) {
                 delaySlider

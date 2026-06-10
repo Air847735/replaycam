@@ -21,6 +21,9 @@ final class CameraManager: NSObject, ObservableObject {
     nonisolated(unsafe) private var videoConnection: AVCaptureConnection?
     nonisolated(unsafe) private var frameCount = 0   // used for periodic cache flush
     nonisolated(unsafe) var targetFPS: Int32 = 30    // set before setupCamera()
+    nonisolated(unsafe) var cameraPosition: AVCaptureDevice.Position = .back
+
+    @Published var currentPosition: AVCaptureDevice.Position = .back
 
     // JPEG quality key for CIContext
     private static let jpegQualityKey = CIImageRepresentationOption(
@@ -89,6 +92,16 @@ final class CameraManager: NSObject, ObservableObject {
 
     // MARK: - Private
 
+    func switchCamera() {
+        let newPosition: AVCaptureDevice.Position = (cameraPosition == .back) ? .front : .back
+        cameraPosition = newPosition
+        captureSession?.stopRunning()
+        captureSession = nil
+        frameBuffer.trimToLastSeconds(0)
+        setupCamera()
+        Task { @MainActor in currentPosition = newPosition }
+    }
+
     // Call this before checkPermissions() to apply fps setting
     func applyFPSSetting(_ fps: Int) {
         targetFPS = Int32(fps)
@@ -113,8 +126,9 @@ final class CameraManager: NSObject, ObservableObject {
             session.beginConfiguration()
             session.sessionPreset = .high
 
+            let position = self.cameraPosition
             guard
-                let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
+                let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: position),
                 let input = try? AVCaptureDeviceInput(device: device),
                 session.canAddInput(input)
             else {

@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @AppStorage("defaultDelay") private var defaultDelay: Double = 3.0
     @AppStorage("recordingFPS") private var recordingFPS: Int = 30
+    @AppStorage("defaultCamera") private var defaultCamera: String = "back"
     @ObservedObject private var store = ClipStore.shared
     @State private var showDeleteConfirm = false
 
@@ -59,6 +60,19 @@ struct SettingsView: View {
                         }
                         .pickerStyle(.segmented)
                         Text(fpsDescription)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 4)
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Label("預設鏡頭", systemImage: "camera")
+                        Picker("", selection: $defaultCamera) {
+                            Text("後鏡頭").tag("back")
+                            Text("前鏡頭").tag("front")
+                        }
+                        .pickerStyle(.segmented)
+                        Text("開啟拍攝時預設使用的鏡頭")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }

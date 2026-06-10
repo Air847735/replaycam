@@ -351,7 +351,7 @@ struct ThumbnailScrubber: View {
                 .contentShape(Rectangle())
                 .gesture(
                     DragGesture(minimumDistance: 0)
-                        .onChanged { value in
+                        .onChanged { @MainActor value in
                             if !isDragging {
                                 withAnimation(.spring(response: 0.2)) { isDragging = true }
                                 model.isScrubbing = true
@@ -363,7 +363,7 @@ struct ThumbnailScrubber: View {
                             model.currentTime = time
                             model.seek(to: time)
                         }
-                        .onEnded { _ in
+                        .onEnded { @MainActor _ in
                             withAnimation(.spring(response: 0.2)) { isDragging = false }
                             model.isScrubbing = false
                             if model.isPlaying { model.player.rate = model.speed }

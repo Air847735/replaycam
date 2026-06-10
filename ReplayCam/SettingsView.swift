@@ -8,8 +8,6 @@ struct SettingsView: View {
     @State private var showDeleteConfirm = false
 
     private var supportedFPS: [Int] {
-        // 120fps only on ProMotion devices (iPhone 13 Pro+)
-        let device = UIDevice.current.model
         let supports120 = ProcessInfo.processInfo.processorCount >= 6
         return supports120 ? [30, 60, 120] : [30, 60]
     }

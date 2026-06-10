@@ -19,23 +19,21 @@ final class CameraManager: NSObject, ObservableObject {
     nonisolated(unsafe) private var lastDelayedUpdate: TimeInterval = 0
     nonisolated(unsafe) var delaySeconds: Double = 3.0
     nonisolated(unsafe) private var videoConnection: AVCaptureConnection?
-    nonisolated(unsafe) private var frameCount = 0   // used for periodic cache flush
-    nonisolated(unsafe) var targetFPS: Int32 = 30    // set before setupCamera()
+    nonisolated(unsafe) private var frameCount = 0
+    nonisolated(unsafe) var targetFPS: Int32 = 30
     nonisolated(unsafe) var cameraPosition: AVCaptureDevice.Position = .back
 
     @Published var currentPosition: AVCaptureDevice.Position = .back
 
-    // JPEG quality key for CIContext
     private static let jpegQualityKey = CIImageRepresentationOption(
         rawValue: kCGImageDestinationLossyCompressionQuality as String
     )
 
     private let realtimeInterval: TimeInterval = 1.0 / 15.0
     private let delayedInterval:  TimeInterval = 1.0 / 25.0
-    // Separate queue for delayed-preview decode so it doesn't block frameQueue
-    private let decodeQueue = DispatchQueue(label: "com.replaycam.decode", qos: .userInitiated)
+    private let decodeQueue  = DispatchQueue(label: "com.replaycam.decode",  qos: .userInitiated)
     private let sessionQueue = DispatchQueue(label: "com.replaycam.session", qos: .userInitiated)
-    private let frameQueue   = DispatchQueue(label: "com.replaycam.frames", qos: .userInteractive)
+    private let frameQueue   = DispatchQueue(label: "com.replaycam.frames",  qos: .userInteractive)
     private var captureSession: AVCaptureSession?
     private var bufferTimer: AnyCancellable?
     private var orientationObserver: NSObjectProtocol?
@@ -59,11 +57,7 @@ final class CameraManager: NSObject, ObservableObject {
 
     func setDelay(_ seconds: Double) {
         delaySeconds = seconds
-        // If the buffer doesn't yet have frames old enough for the new delay,
-        // clear the stale image so the countdown placeholder appears.
-        if seconds > frameBuffer.duration {
-            delayedImage = nil
-        }
+        if seconds > frameBuffer.duration { delayedImage = nil }
     }
 
     func saveRecentFrames(duration: TimeInterval) {
@@ -75,8 +69,10 @@ final class CameraManager: NSObject, ObservableObject {
         isSaving = true
         Task.detached(priority: .userInitiated) { [weak self] in
             do {
-                let tempURL = try await VideoExporter.export(frames: frames, fps: self?.targetFPS ?? 30)
-                // Move to persistent clips directory (in-app library)
+                let tempURL = try await VideoExporter.export(
+                    frames: frames,
+                    fps: self?.targetFPS ?? 30
+                )
                 let _ = try VideoExporter.moveToClipsDirectory(from: tempURL)
                 await MainActor.run {
                     ClipStore.shared.refresh()
@@ -90,8 +86,6 @@ final class CameraManager: NSObject, ObservableObject {
         }
     }
 
-    // MARK: - Private
-
     func switchCamera() {
         let newPosition: AVCaptureDevice.Position = (cameraPosition == .back) ? .front : .back
         cameraPosition = newPosition
@@ -102,7 +96,6 @@ final class CameraManager: NSObject, ObservableObject {
         Task { @MainActor in currentPosition = newPosition }
     }
 
-    // Call this before checkPermissions() to apply fps setting
     func applyFPSSetting(_ fps: Int) {
         targetFPS = Int32(fps)
         switch fps {
@@ -118,6 +111,8 @@ final class CameraManager: NSObject, ObservableObject {
         }
     }
 
+    // MARK: - Private
+
     private func setupCamera() {
         sessionQueue.async { [weak self] in
             guard let self else { return }
@@ -129,27 +124,21 @@ final class CameraManager: NSObject, ObservableObject {
             let position = self.cameraPosition
             guard
                 let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: position),
-                let input = try? AVCaptureDeviceInput(device: device),
+                let input  = try? AVCaptureDeviceInput(device: device),
                 session.canAddInput(input)
             else {
-                Task { @MainActor in self.errorMessage = "找不到後置相機" }
+                Task { @MainActor in self.errorMessage = "找不到相機" }
                 return
             }
             session.addInput(input)
 
-            // Apply user-selected fps (30 / 60 / 120)
             let fps = self.targetFPS
             if let device = (session.inputs.first as? AVCaptureDeviceInput)?.device {
-                // Find a format that supports the requested fps
                 let supportedFormat = device.formats.last { format in
-                    format.videoSupportedFrameRateRanges.contains {
-                        $0.maxFrameRate >= Double(fps)
-                    }
+                    format.videoSupportedFrameRateRanges.contains { $0.maxFrameRate >= Double(fps) }
                 }
                 try? device.lockForConfiguration()
-                if let format = supportedFormat, fps > 30 {
-                    device.activeFormat = format
-                }
+                if let format = supportedFormat, fps > 30 { device.activeFormat = format }
                 device.activeVideoMinFrameDuration = CMTime(value: 1, timescale: fps)
                 device.activeVideoMaxFrameDuration = CMTime(value: 1, timescale: fps)
                 device.unlockForConfiguration()
@@ -194,8 +183,6 @@ final class CameraManager: NSObject, ObservableObject {
                         self.bufferFrameCount = self.frameBuffer.count
                         self.bufferDuration   = self.frameBuffer.duration
                     }
-
-                // Trim buffer to last 15 s under memory pressure to avoid being killed
                 self.memoryObserver = NotificationCenter.default.addObserver(
                     forName: UIApplication.didReceiveMemoryWarningNotification,
                     object: nil, queue: .main
@@ -231,20 +218,15 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
         let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
         let colorSpace = CGColorSpaceCreateDeviceRGB()
 
-        // ── Buffer storage ──────────────────────────────────────────────────
         guard let jpeg = ciContext.jpegRepresentation(
             of: ciImage, colorSpace: colorSpace,
             options: [Self.jpegQualityKey: 0.45]
         ) else { return }
         frameBuffer.append(TimestampedFrame(jpegData: jpeg, timestamp: now))
 
-        // Flush GPU/CPU caches every 300 frames (~10 s) to prevent memory creep
         frameCount += 1
-        if frameCount % 300 == 0 {
-            ciContext.clearCaches()
-        }
+        if frameCount % 300 == 0 { ciContext.clearCaches() }
 
-        // ── Realtime preview (throttled 15 fps) ─────────────────────────────
         if now - lastRealtimeUpdate >= realtimeInterval {
             lastRealtimeUpdate = now
             autoreleasepool {
@@ -258,9 +240,6 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
             }
         }
 
-        // ── Delayed preview (throttled 25 fps) ──────────────────────────────
-        // Offload JPEG decode + resize to decodeQueue so frameQueue stays free.
-        // autoreleasepool releases the intermediate full-res UIImage promptly.
         if now - lastDelayedUpdate >= delayedInterval {
             lastDelayedUpdate = now
             let target = now - delaySeconds

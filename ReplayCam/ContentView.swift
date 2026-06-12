@@ -62,7 +62,7 @@ struct ContentView: View {
                     }
                 }
 
-                // ── Collapsed hint ──────────────────────────────────────────
+// ── Collapsed hint ──────────────────────────────────────────
                 if !controlsVisible {
                     VStack {
                         Spacer()
@@ -276,7 +276,6 @@ struct ContentView: View {
         return HStack(alignment: .center, spacing: 14) {
             // Camera switch + mirror buttons
             if isLandscape {
-                // In landscape, lay them side by side to save vertical space
                 HStack(spacing: 8) { cameraButton; mirrorButton }
             } else {
                 VStack(spacing: 8) { cameraButton; mirrorButton }
@@ -322,7 +321,7 @@ struct ContentView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Shared slider row
+// MARK: - Shared slider row
 
     /// Single-line layout: [icon label]  [━━●━━━━━]  [value]
     private func sliderRow(

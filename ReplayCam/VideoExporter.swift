@@ -6,7 +6,10 @@ enum VideoExporter {
     private static let portraitSize  = CGSize(width: 1080, height: 1920)
     private static let landscapeSize = CGSize(width: 1920, height: 1080)
 
-    static func export(frames: [TimestampedFrame], fps: Int32 = 30) async throws -> URL {
+    static let intrinsicsMetadataKey = "com.replaycam.cameraIntrinsics"
+
+    static func export(frames: [TimestampedFrame], fps: Int32 = 30,
+                       intrinsics: Data? = nil) async throws -> URL {
         let firstSize = UIImage(data: frames[0].jpegData)?.size ?? CGSize(width: 1080, height: 1920)
         let exportSize = firstSize.width > firstSize.height ? landscapeSize : portraitSize
 
@@ -16,7 +19,7 @@ enum VideoExporter {
 
         let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
 
-        let videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: [
+        nonisolated(unsafe) let videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: [
             AVVideoCodecKey: AVVideoCodecType.h264,
             AVVideoWidthKey: Int(exportSize.width),
             AVVideoHeightKey: Int(exportSize.height),
@@ -24,7 +27,7 @@ enum VideoExporter {
         ])
         videoInput.expectsMediaDataInRealTime = false
 
-        let adaptor = AVAssetWriterInputPixelBufferAdaptor(
+        nonisolated(unsafe) let adaptor = AVAssetWriterInputPixelBufferAdaptor(
             assetWriterInput: videoInput,
             sourcePixelBufferAttributes: [
                 kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA),
@@ -33,6 +36,15 @@ enum VideoExporter {
                 kCVPixelBufferIOSurfacePropertiesKey as String: [:]
             ]
         )
+
+        // Embed camera intrinsics in video metadata so VideoAnalyzer can use them
+        if let data = intrinsics {
+            let item = AVMutableMetadataItem()
+            item.keySpace = AVMetadataKeySpace.quickTimeMetadata
+            item.key      = Self.intrinsicsMetadataKey as NSString
+            item.value    = data.base64EncodedString() as NSString
+            writer.metadata = [item]
+        }
 
         guard writer.canAdd(videoInput) else { throw ExportError.cannotAddInput }
         writer.add(videoInput)

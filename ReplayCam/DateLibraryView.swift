@@ -55,6 +55,9 @@ enum LibraryDisplayMode: String, CaseIterable {
 }
 
 struct DateLibraryView: View {
+    var onSelectClip: ((SavedClip) -> Void)? = nil   // nil = normal PlayerView navigation
+    var navigationTitle: String = "日期記錄"
+
     @ObservedObject private var store = ClipStore.shared
     @State private var displayMode: LibraryDisplayMode = .folder
     @State private var durations: [String: Double] = [:]
@@ -86,7 +89,7 @@ struct DateLibraryView: View {
                 }
             }
         }
-        .navigationTitle("日期記錄")
+        .navigationTitle(navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
@@ -127,7 +130,7 @@ struct DateLibraryView: View {
         List {
             Section {
                 ForEach(store.rootFolders) { folder in
-                    NavigationLink(destination: FolderDetailView(folder: folder)) {
+                    NavigationLink(destination: FolderDetailView(folder: folder, onSelectClip: onSelectClip)) {
                         FolderRow(folder: folder)
                     }
                     .listRowBackground(Color.white.opacity(0.08))
@@ -156,7 +159,7 @@ struct DateLibraryView: View {
             if !unassignedGroups.isEmpty {
                 Section {
                     ForEach(unassignedGroups) { group in
-                        NavigationLink(destination: DayDetailView(group: group)) {
+                        NavigationLink(destination: DayDetailView(group: group, onSelectClip: onSelectClip)) {
                             DateGroupRow(group: group, totalDuration: durations[group.id])
                         }
                         .listRowBackground(Color.white.opacity(0.08))
@@ -184,7 +187,7 @@ struct DateLibraryView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List(allGroups) { group in
-                    NavigationLink(destination: DayDetailView(group: group, showAllClips: true)) {
+                    NavigationLink(destination: DayDetailView(group: group, showAllClips: true, onSelectClip: onSelectClip)) {
                         DateGroupRow(group: group, totalDuration: durations[group.id])
                     }
                     .listRowBackground(Color.white.opacity(0.08))
@@ -285,7 +288,8 @@ struct DateGroupRow: View {
 
 struct FolderDetailView: View {
     let folder: ClipFolder
-    var depth: Int = 1          // 1 = root level folder
+    var depth: Int = 1
+    var onSelectClip: ((SavedClip) -> Void)? = nil
     @ObservedObject private var store = ClipStore.shared
     @State private var durations: [String: Double] = [:]
     @State private var showRename       = false
@@ -321,7 +325,7 @@ struct FolderDetailView: View {
                     if !subfolders.isEmpty {
                         Section {
                             ForEach(subfolders) { sub in
-                                NavigationLink(destination: FolderDetailView(folder: sub, depth: depth + 1)) {
+                                NavigationLink(destination: FolderDetailView(folder: sub, depth: depth + 1, onSelectClip: onSelectClip)) {
                                     FolderRow(folder: sub)
                                 }
                                 .listRowBackground(Color.white.opacity(0.08))
@@ -343,7 +347,7 @@ struct FolderDetailView: View {
                     if !groups.isEmpty {
                         Section {
                             ForEach(groups) { group in
-                                NavigationLink(destination: DayDetailView(group: group, folderID: folder.id)) {
+                                NavigationLink(destination: DayDetailView(group: group, folderID: folder.id, onSelectClip: onSelectClip)) {
                                     DateGroupRow(group: group, totalDuration: durations[group.id])
                                 }
                                 .listRowBackground(Color.white.opacity(0.08))
@@ -432,8 +436,9 @@ struct FolderDetailView: View {
 
 struct DayDetailView: View {
     let group: DateGroup
-    var folderID: String?    = nil   // set when navigating from FolderDetailView
-    var showAllClips: Bool   = false // set when navigating from date mode (ignore folder filter)
+    var folderID: String?    = nil
+    var showAllClips: Bool   = false
+    var onSelectClip: ((SavedClip) -> Void)? = nil   // override default PlayerView navigation
 
     @ObservedObject private var store = ClipStore.shared
 
@@ -455,10 +460,19 @@ struct DayDetailView: View {
     private var currentClips: [SavedClip] {
         let cal = Calendar.current
         let byDate = store.clips.filter { cal.isDate($0.date, inSameDayAs: group.date) }
-        if showAllClips { return byDate }
-        if let folderID { return byDate.filter { store.clipFolderMap[$0.id] == folderID } }
-        // Coming from unassigned section — exclude clips already in a folder
-        return byDate.filter { store.clipFolderMap[$0.id] == nil }
+        let base: [SavedClip]
+        if showAllClips {
+            base = byDate
+        } else if let folderID {
+            base = byDate.filter { store.clipFolderMap[$0.id] == folderID }
+        } else {
+            base = byDate.filter { store.clipFolderMap[$0.id] == nil }
+        }
+        return base.sorted { a, b in
+            let fa = store.isFavorite(a), fb = store.isFavorite(b)
+            if fa != fb { return fa }
+            return a.date > b.date
+        }
     }
     private var selectedClips: [SavedClip] {
         currentClips.filter { selectedIDs.contains($0.id) }
@@ -473,7 +487,9 @@ struct DayDetailView: View {
                     .foregroundColor(.white.opacity(0.6))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
+                ScrollViewReader { proxy in
                 ScrollView {
+                    Color.clear.frame(height: 0).id("top")
                     LazyVGrid(columns: columns, spacing: 2) {
                         ForEach(currentClips) { clip in
                             ClipCell(
@@ -487,19 +503,19 @@ struct DayDetailView: View {
                                         if selectedIDs.contains(clip.id) { selectedIDs.remove(clip.id) }
                                         else { selectedIDs.insert(clip.id) }
                                     }
+                                } else if let handler = onSelectClip {
+                                    handler(clip)
                                 } else {
                                     selectedClip = clip
                                 }
                             }
                             .contextMenu {
                                 if !isSelecting {
-                                    ShareLink(
-                                        item: clip.url,
-                                        preview: SharePreview(
-                                            clip.date.formatted(.dateTime.month().day().hour().minute()),
-                                            icon: Image(systemName: "film")
-                                        )
-                                    ) { Label("匯出影片", systemImage: "square.and.arrow.up") }
+                                    let title = clip.date.formatted(.dateTime.month().day().hour().minute())
+                                    let preview = SharePreview(title, icon: Image(systemName: "film"))
+                                    ShareLink(item: clip.url, preview: preview) {
+                                        Label("匯出影片", systemImage: "square.and.arrow.up")
+                                    }
                                     Divider()
                                     Button(role: .destructive) { store.delete(clip) } label: {
                                         Label("刪除", systemImage: "trash")
@@ -519,6 +535,10 @@ struct DayDetailView: View {
                         }
                 )
                 .animation(.spring(response: 0.2, dampingFraction: 0.75), value: liveColumnCount)
+                .onChange(of: store.favoriteIDs) { _ in
+                    withAnimation(.easeOut(duration: 0.3)) { proxy.scrollTo("top", anchor: .top) }
+                }
+                } // ScrollViewReader
             }
 
             if isSelecting {

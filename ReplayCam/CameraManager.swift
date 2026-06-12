@@ -13,8 +13,8 @@ final class CameraManager: NSObject, ObservableObject {
     @Published var errorMessage = ""
     @Published var showSuccess = false
 
-    nonisolated(unsafe) private let frameBuffer = FrameBuffer()
-    nonisolated(unsafe) private let ciContext = CIContext(options: [.useSoftwareRenderer: false])
+    private let frameBuffer = FrameBuffer()
+    private let ciContext = CIContext(options: [.useSoftwareRenderer: false])
     nonisolated(unsafe) private var lastRealtimeUpdate: TimeInterval = 0
     nonisolated(unsafe) private var lastDelayedUpdate: TimeInterval = 0
     nonisolated(unsafe) var delaySeconds: Double = 3.0
@@ -24,6 +24,8 @@ final class CameraManager: NSObject, ObservableObject {
     nonisolated(unsafe) var cameraPosition: AVCaptureDevice.Position = .back
 
     @Published var currentPosition: AVCaptureDevice.Position = .back
+
+    nonisolated(unsafe) private var latestIntrinsics: Data? = nil
 
     private static let jpegQualityKey = CIImageRepresentationOption(
         rawValue: kCGImageDestinationLossyCompressionQuality as String
@@ -67,11 +69,13 @@ final class CameraManager: NSObject, ObservableObject {
         guard !frames.isEmpty else { return }
 
         isSaving = true
+        let capturedIntrinsics = latestIntrinsics
         Task.detached(priority: .userInitiated) { [weak self] in
             do {
                 let tempURL = try await VideoExporter.export(
                     frames: frames,
-                    fps: self?.targetFPS ?? 30
+                    fps: self?.targetFPS ?? 30,
+                    intrinsics: capturedIntrinsics
                 )
                 let _ = try VideoExporter.moveToClipsDirectory(from: tempURL)
                 await MainActor.run {
@@ -155,9 +159,15 @@ final class CameraManager: NSObject, ObservableObject {
             }
             session.addOutput(output)
 
-            if let conn = output.connection(with: .video), conn.isVideoOrientationSupported {
+            if let conn = output.connection(with: .video) {
                 self.videoConnection = conn
-                conn.videoOrientation = self.avOrientation(for: UIDevice.current.orientation)
+                // Enable intrinsics delivery on the connection (for 3D pose accuracy)
+                if conn.isCameraIntrinsicMatrixDeliverySupported {
+                    conn.isCameraIntrinsicMatrixDeliveryEnabled = true
+                }
+                if conn.isVideoOrientationSupported {
+                    conn.videoOrientation = self.avOrientation(for: UIDevice.current.orientation)
+                }
             }
 
             session.commitConfiguration()
@@ -214,6 +224,15 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
     ) {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
 
+        // Extract camera intrinsics from sample buffer (available when enabled on output)
+        if let intrinsicData = CMGetAttachment(
+            sampleBuffer,
+            key: kCMSampleBufferAttachmentKey_CameraIntrinsicMatrix,
+            attachmentModeOut: nil
+        ) as? Data {
+            latestIntrinsics = intrinsicData
+        }
+
         let now = Date().timeIntervalSince1970
         let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
         let colorSpace = CGColorSpaceCreateDeviceRGB()
@@ -247,9 +266,8 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
                 decodeQueue.async { [weak self] in
                     guard let self else { return }
                     autoreleasepool {
-                        if let delayed = UIImage(data: frame.jpegData)?.resizedFit(maxDimension: 960) {
-                            Task { @MainActor in self.delayedImage = delayed }
-                        }
+                        guard let delayed = UIImage(data: frame.jpegData)?.resizedFit(maxDimension: 960) else { return }
+                        Task { @MainActor in self.delayedImage = delayed }
                     }
                 }
             }

@@ -9,6 +9,7 @@ struct ContentView: View {
     @State private var selectedDelay: Double = 3.0   // local copy, does not write back to AppStorage
     @State private var saveDuration: Double = 10.0
     @State private var isMirrored: Bool = false
+    @State private var poseEnabled: Bool = false
 
     @State private var controlsVisible = true
     @Environment(\.dismiss) private var dismiss
@@ -60,6 +61,14 @@ struct ContentView: View {
                         }
                         Spacer()
                     }
+                }
+
+                // ── Pose overlay on delayed feed ────────────────────────────
+                if poseEnabled && !camera.poseResults.isEmpty {
+                    PoseOverlayView(poses: camera.poseResults,
+                                    imageSize: camera.poseFrameSize)
+                        .ignoresSafeArea()
+                        .allowsHitTesting(false)
                 }
 
                 // ── Collapsed hint ──────────────────────────────────────────
@@ -276,10 +285,9 @@ struct ContentView: View {
         return HStack(alignment: .center, spacing: 14) {
             // Camera switch + mirror buttons
             if isLandscape {
-                // In landscape, lay them side by side to save vertical space
-                HStack(spacing: 8) { cameraButton; mirrorButton }
+                HStack(spacing: 8) { cameraButton; mirrorButton; poseButton }
             } else {
-                VStack(spacing: 8) { cameraButton; mirrorButton }
+                VStack(spacing: 8) { cameraButton; mirrorButton; poseButton }
             }
 
             // Sliders
@@ -316,6 +324,21 @@ struct ContentView: View {
             Image(systemName: "arrow.left.and.right.righttriangle.left.righttriangle.right")
                 .font(.system(size: 15, weight: .medium))
                 .foregroundColor(isMirrored ? .yellow : .white)
+                .frame(width: 40, height: 40)
+                .background(.ultraThinMaterial, in: Circle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var poseButton: some View {
+        Button {
+            poseEnabled.toggle()
+            camera.poseEnabled = poseEnabled
+            if !poseEnabled { camera.poseResults = [] }
+        } label: {
+            Image(systemName: "figure.stand")
+                .font(.system(size: 17, weight: .medium))
+                .foregroundColor(poseEnabled ? .green : .white)
                 .frame(width: 40, height: 40)
                 .background(.ultraThinMaterial, in: Circle())
         }

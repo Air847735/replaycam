@@ -61,6 +61,10 @@ struct HomeView: View {
                 }.buttonStyle(.plain)
             }
 
+            NavigationLink(destination: PoseAnalysisView()) {
+                poseAnalysisCard
+            }.buttonStyle(.plain)
+
             Spacer()
             logoFooter.padding(.bottom, 12)
         }
@@ -96,11 +100,43 @@ struct HomeView: View {
                 NavigationLink(destination: SettingsView()) {
                     secondaryCard(icon: "gearshape.fill", title: "設定", subtitle: "延遲與偏好")
                 }.buttonStyle(.plain)
+                NavigationLink(destination: PoseAnalysisView()) {
+                    secondaryCard(icon: "figure.run", title: "骨架分析", subtitle: "關節角度分析")
+                }.buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
         .safeAreaPadding(.all)
+    }
+
+    private var poseAnalysisCard: some View {
+        HStack(spacing: 16) {
+            Image(systemName: "figure.run")
+                .font(.system(size: 28))
+                .foregroundColor(.white)
+                .frame(width: 44)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("骨架分析")
+                    .font(.headline).foregroundColor(.white)
+                Text("選取影片，分析關節角度與動作數據")
+                    .font(.caption).foregroundColor(.white.opacity(0.7))
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.white.opacity(0.5))
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+        .background(
+            LinearGradient(
+                colors: [Color(red: 0.4, green: 0.15, blue: 0.7),
+                         Color(red: 0.2, green: 0.1, blue: 0.5)],
+                startPoint: .leading, endPoint: .trailing
+            ),
+            in: RoundedRectangle(cornerRadius: 18)
+        )
     }
 
     private var logoFooter: some View {

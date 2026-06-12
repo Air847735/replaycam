@@ -52,8 +52,10 @@ final class PlayerModel: ObservableObject {
         timeObserverToken = player.addPeriodicTimeObserver(
             forInterval: interval, queue: .main
         ) { [weak self] time in
-            guard let self, !self.isScrubbing else { return }
-            self.currentTime = time.seconds
+            Task { @MainActor [weak self] in
+                guard let self, !self.isScrubbing else { return }
+                self.currentTime = time.seconds
+            }
         }
 
         // Loop: seek to zero and resume when clip ends
@@ -62,10 +64,14 @@ final class PlayerModel: ObservableObject {
             object: player.currentItem,
             queue: .main
         ) { [weak self] _ in
-            guard let self else { return }
-            self.player.seek(to: .zero) { [weak self] _ in
-                guard let self, self.isPlaying else { return }
-                self.player.rate = self.speed
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.player.seek(to: .zero) { [weak self] _ in
+                    Task { @MainActor [weak self] in
+                        guard let self, self.isPlaying else { return }
+                        self.player.rate = self.speed
+                    }
+                }
             }
         }
 

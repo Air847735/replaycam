@@ -25,12 +25,7 @@ final class CameraManager: NSObject, ObservableObject {
 
     @Published var currentPosition: AVCaptureDevice.Position = .back
 
-    // Pose detection
-    @Published var poseResults: [PoseResult] = []
-    @Published var poseFrameSize: CGSize = .zero
-    nonisolated(unsafe) var poseEnabled: Bool = false
     nonisolated(unsafe) private var latestIntrinsics: Data? = nil
-    private let poseDetector = PoseDetector()
 
     private static let jpegQualityKey = CIImageRepresentationOption(
         rawValue: kCGImageDestinationLossyCompressionQuality as String
@@ -268,26 +263,11 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
             lastDelayedUpdate = now
             let target = now - delaySeconds
             if let frame = frameBuffer.findFrame(nearTimestamp: target) {
-                let runPose = poseEnabled
                 decodeQueue.async { [weak self] in
                     guard let self else { return }
                     autoreleasepool {
                         guard let delayed = UIImage(data: frame.jpegData)?.resizedFit(maxDimension: 960) else { return }
                         Task { @MainActor in self.delayedImage = delayed }
-
-                        if runPose,
-                           let src = UIImage(data: frame.jpegData),
-                           let pb = src.toPixelBuffer() {
-                            let sz = CGSize(width: CVPixelBufferGetWidth(pb),
-                                           height: CVPixelBufferGetHeight(pb))
-                            let intrinsics = self.latestIntrinsics
-                            let results = self.poseDetector.detect(pixelBuffer: pb,
-                                                                   intrinsics: intrinsics)
-                            Task { @MainActor in
-                                self.poseResults   = results
-                                self.poseFrameSize = sz
-                            }
-                        }
                     }
                 }
             }

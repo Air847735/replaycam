@@ -26,7 +26,7 @@ struct PoseOverlayView: View {
         }
         let scaleX = viewSize.width  / imageSize.width
         let scaleY = viewSize.height / imageSize.height
-        let scale  = max(scaleX, scaleY)
+        let scale  = min(scaleX, scaleY)
         let w = imageSize.width  * scale
         let h = imageSize.height * scale
         return CGRect(x: (viewSize.width  - w) / 2,

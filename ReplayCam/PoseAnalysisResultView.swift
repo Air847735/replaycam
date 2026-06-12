@@ -2,6 +2,19 @@ import SwiftUI
 import AVKit
 import Charts
 
+// AVPlayerViewController wrapper with no playback controls (removes AirPlay button)
+private struct AnalysisVideoContainer: UIViewControllerRepresentable {
+    let player: AVPlayer
+    func makeUIViewController(context: Context) -> AVPlayerViewController {
+        let vc = AVPlayerViewController()
+        vc.player = player
+        vc.showsPlaybackControls = false
+        vc.videoGravity = .resizeAspect
+        return vc
+    }
+    func updateUIViewController(_ vc: AVPlayerViewController, context: Context) {}
+}
+
 private struct AngleSelection: Identifiable {
     let name: String
     var id: String { name }
@@ -20,6 +33,15 @@ struct PoseAnalysisResultView: View {
     @State private var player: AVPlayer?
     @State private var timeObserver: Any?
     @State private var selectedAngleName: String?
+    @State private var isExporting = false
+    @State private var exportProgress: Double = 0
+    @State private var exportResult: ExportResultAlert?
+
+    private struct ExportResultAlert: Identifiable {
+        let id = UUID()
+        let message: String
+        let isError: Bool
+    }
 
     private var currentAnalysis: FrameAnalysis? {
         guard !analyses.isEmpty else { return nil }
@@ -36,21 +58,61 @@ struct PoseAnalysisResultView: View {
                 resultContent
             }
 
-            // Back button
-            Button {
-                if let obs = timeObserver { player?.removeTimeObserver(obs) }
-                dismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.white)
-                    .frame(width: 36, height: 36)
-                    .background(.ultraThinMaterial, in: Circle())
+            // Back button + export button
+            GeometryReader { geo in
+                let isPortrait = geo.size.width < geo.size.height
+                let topY = geo.safeAreaInsets.top + (isPortrait ? 52 : 30)
+
+                Button {
+                    if let obs = timeObserver { player?.removeTimeObserver(obs) }
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(width: 36, height: 36)
+                        .background(.ultraThinMaterial, in: Circle())
+                }
+                .position(x: geo.safeAreaInsets.leading + 38, y: topY)
+
+                if !isAnalyzing {
+                    Button {
+                        Task { await exportWithSkeleton() }
+                    } label: {
+                        Image(systemName: "square.and.arrow.down")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(width: 36, height: 36)
+                            .background(.ultraThinMaterial, in: Circle())
+                    }
+                    .disabled(isExporting)
+                    .position(x: geo.size.width - geo.safeAreaInsets.trailing - 38, y: topY)
+                }
             }
-            .padding(.top, 56)
-            .padding(.leading, 20)
+
+            // Export progress overlay
+            if isExporting {
+                VStack(spacing: 12) {
+                    ProgressView(value: exportProgress)
+                        .tint(.purple)
+                        .frame(width: 200)
+                    Text("匯出骨架影片… \(Int(exportProgress * 100))%")
+                        .font(.caption)
+                        .foregroundColor(.white)
+                }
+                .padding(20)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
         .ignoresSafeArea()
+        .alert(item: $exportResult) { result in
+            Alert(
+                title: Text(result.isError ? "匯出失敗" : "已儲存到相簿"),
+                message: Text(result.message),
+                dismissButton: .default(Text("好"))
+            )
+        }
         .task { await runAnalysis() }
     }
 
@@ -81,34 +143,76 @@ struct PoseAnalysisResultView: View {
     private var resultContent: some View {
         GeometryReader { geo in
             if geo.size.width > geo.size.height {
-                // Landscape: video left, angle panel right
+                // Landscape: video left, right panel switches between grid and chart
                 HStack(spacing: 0) {
                     if let player {
-                        VideoPlayer(player: player)
+                        AnalysisVideoContainer(player: player)
                             .overlay(skeletonOverlay, alignment: .center)
                             .frame(width: geo.size.width * 0.58)
                     }
-                    ScrollView {
-                        angleGrid(currentAnalysis?.angles ?? [], columns: 2)
+                    ZStack(alignment: .top) {
+                        landscapeGradient
+                        // Grid always underneath
+                        angleGrid(currentAnalysis?.angles ?? [], columns: 4)
                             .padding(12)
+
+                        // Chart panel slides over the grid; drag down reveals grid behind
+                        if let name = selectedAngleName {
+                            LandscapeChartPanel(
+                                name: name,
+                                onDismiss: {
+                                    withAnimation(.easeInOut(duration: 0.2)) { selectedAngleName = nil }
+                                }
+                            ) {
+                                AngleChartContent(
+                                    angleName: name,
+                                    analyses: analyses,
+                                    currentTime: currentTime,
+                                    onSeek: { time in
+                                        player?.pause()
+                                        player?.seek(to: CMTime(seconds: time, preferredTimescale: 600),
+                                                     toleranceBefore: .zero, toleranceAfter: .zero)
+                                    }
+                                )
+                                .padding(.horizontal, 12)
+                                .padding(.bottom, 12)
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                        }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(landscapeGradient)
+                    .clipped()
                 }
             } else {
-                // Portrait: video top, 2-column grid below
+                // Portrait: video top, grid fills remaining space; chart via sheet
                 VStack(spacing: 0) {
                     if let player {
-                        VideoPlayer(player: player)
+                        AnalysisVideoContainer(player: player)
                             .aspectRatio(9/16, contentMode: .fit)
                             .overlay(skeletonOverlay, alignment: .center)
                     }
-                    ScrollView {
-                        angleGrid(currentAnalysis?.angles ?? [], columns: 4)
-                            .padding(12)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .background(landscapeGradient)
+                    angleGrid(currentAnalysis?.angles ?? [], columns: 2)
+                        .padding(12)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(landscapeGradient)
+                }
+                .sheet(item: Binding(
+                    get: { selectedAngleName.map { AngleSelection(name: $0) } },
+                    set: { selectedAngleName = $0?.name }
+                )) { selection in
+                    AngleChartSheet(
+                        angleName: selection.name,
+                        analyses: analyses,
+                        currentTime: currentTime,
+                        onSeek: { time in
+                            player?.pause()
+                            player?.seek(to: CMTime(seconds: time, preferredTimescale: 600),
+                                         toleranceBefore: .zero, toleranceAfter: .zero)
+                        }
+                    )
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
                 }
             }
         }
@@ -157,8 +261,7 @@ struct PoseAnalysisResultView: View {
                     .padding(.vertical, 4)
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.white.opacity(valid ? 0.06 : 0.03),
                     in: RoundedRectangle(cornerRadius: 12))
     }
@@ -195,40 +298,43 @@ struct PoseAnalysisResultView: View {
     @ViewBuilder
     private func angleGrid(_ angles: [JointAngle], columns: Int = 2) -> some View {
         let byName = Dictionary(uniqueKeysWithValues: angles.map { ($0.name, $0) })
-        let cols = Array(repeating: GridItem(.flexible(), spacing: 8), count: columns)
-        return LazyVGrid(columns: cols, spacing: 8) {
-            ForEach(Self.allJointNames, id: \.self) { name in
-                let angle = byName[name]
-                let isValid = angle?.isValid == true
-                Group {
-                    if isValid, let angle {
-                        Button { selectedAngleName = angle.name } label: {
-                            angleCard(name: angle.name, degrees: angle.degrees, valid: true)
+        let names = Self.allJointNames
+        let rowCount = (names.count + columns - 1) / columns
+        let rows = (0..<rowCount).map { r in
+            Array(names[(r * columns)..<min((r + 1) * columns, names.count)])
+        }
+        Grid(horizontalSpacing: 8, verticalSpacing: 8) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, rowNames in
+                GridRow {
+                    ForEach(rowNames, id: \.self) { name in
+                        let angle = byName[name]
+                        let isValid = angle?.isValid == true
+                        Button { selectedAngleName = name } label: {
+                            angleCard(name: name, degrees: isValid ? angle?.degrees : nil, valid: isValid)
                         }
                         .buttonStyle(.plain)
-                    } else {
-                        angleCard(name: name, degrees: nil, valid: false)
                     }
                 }
             }
         }
-        .sheet(item: Binding(
-            get: { selectedAngleName.map { AngleSelection(name: $0) } },
-            set: { selectedAngleName = $0?.name }
-        )) { selection in
-            AngleChartSheet(
-                angleName: selection.name,
-                analyses: analyses,
-                currentTime: currentTime,
-                onSeek: { time in
-                    player?.pause()
-                    player?.seek(to: CMTime(seconds: time, preferredTimescale: 600),
-                                 toleranceBefore: .zero, toleranceAfter: .zero)
-                }
-            )
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
+    }
+
+    // MARK: - Export with skeleton
+
+    private func exportWithSkeleton() async {
+        guard !analyses.isEmpty else { return }
+        isExporting = true
+        exportProgress = 0
+        do {
+            let outURL = try await SkeletonVideoExporter.export(url: clip.url, analyses: analyses) { p in
+                Task { @MainActor in exportProgress = p }
+            }
+            try await SkeletonVideoExporter.saveToPhotoLibrary(url: outURL)
+            exportResult = ExportResultAlert(message: "含骨架的影片已儲存到相簿", isError: false)
+        } catch {
+            exportResult = ExportResultAlert(message: error.localizedDescription, isError: true)
         }
+        isExporting = false
     }
 
     // MARK: - Analysis task
@@ -252,9 +358,69 @@ struct PoseAnalysisResultView: View {
     }
 }
 
-// MARK: - Angle chart sheet
+// MARK: - Landscape chart panel wrapper (swipe-down to dismiss, like a sheet)
 
-struct AngleChartSheet: View {
+private struct LandscapeChartPanel<Content: View>: View {
+    let name: String
+    let onDismiss: () -> Void
+    @ViewBuilder let content: () -> Content
+
+    @State private var dragOffset: CGFloat = 0
+
+    private let bg = LinearGradient(
+        colors: [Color(red: 0.06, green: 0.04, blue: 0.14),
+                 Color(red: 0.04, green: 0.08, blue: 0.18)],
+        startPoint: .topLeading, endPoint: .bottomTrailing
+    )
+
+    private let topInset: CGFloat = 44  // gap showing grid behind
+
+    var body: some View {
+        GeometryReader { geo in
+            let visibleH = geo.size.height - topInset
+            ZStack(alignment: .top) {
+                // Background extends below visible area so no gap appears during drag
+                bg
+                    .frame(width: geo.size.width, height: visibleH + 300)
+                    .clipShape(UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 0,
+                                                      bottomTrailingRadius: 0, topTrailingRadius: 16))
+
+                // Content constrained to visible height
+                VStack(spacing: 0) {
+                    VStack(spacing: 6) {
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(Color.white.opacity(0.3))
+                            .frame(width: 36, height: 4)
+                        Text(name)
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+
+                    content()
+                }
+                .frame(width: geo.size.width, height: visibleH)
+            }
+            .offset(y: topInset + max(0, dragOffset))
+            .gesture(
+                DragGesture()
+                    .onChanged { v in dragOffset = v.translation.height }
+                    .onEnded { v in
+                        if v.translation.height > 60 {
+                            onDismiss()
+                        } else {
+                            withAnimation(.spring(response: 0.3)) { dragOffset = 0 }
+                        }
+                    }
+            )
+        }
+    }
+}
+
+// MARK: - Shared chart content (used both inline in landscape and in sheet for portrait)
+
+struct AngleChartContent: View {
     let angleName: String
     let analyses: [FrameAnalysis]
     let currentTime: Double
@@ -267,14 +433,23 @@ struct AngleChartSheet: View {
         let id = UUID()
         let time: Double
         let degrees: Double
+        let segment: Int
     }
 
     private var dataPoints: [DataPoint] {
-        analyses.compactMap { frame in
-            guard let angle = frame.angles.first(where: { $0.name == angleName }),
-                  angle.isValid else { return nil }
-            return DataPoint(time: frame.time, degrees: angle.degrees)
+        var result: [DataPoint] = []
+        var seg = 0
+        var prevWasValid = false
+        for frame in analyses {
+            let valid = frame.angles.first(where: { $0.name == angleName })?.isValid == true
+            if valid {
+                if !prevWasValid && !result.isEmpty { seg += 1 }
+                let deg = frame.angles.first(where: { $0.name == angleName })!.degrees
+                result.append(DataPoint(time: frame.time, degrees: deg, segment: seg))
+            }
+            prevWasValid = valid
         }
+        return result
     }
 
     private var stats: (min: Double, max: Double, avg: Double)? {
@@ -284,139 +459,143 @@ struct AngleChartSheet: View {
     }
 
     var body: some View {
+        VStack(spacing: 12) {
+            // Stats row
+            if let s = stats {
+                HStack(spacing: 0) {
+                    Button {
+                        if let t = dataPoints.min(by: { $0.degrees < $1.degrees })?.time { onSeek?(t) }
+                    } label: {
+                        statCell(label: "最小", value: "\(Int(s.min))°", color: .red, tappable: true)
+                    }.buttonStyle(.plain)
+                    Divider().frame(height: 32).background(Color.white.opacity(0.15))
+                    statCell(label: "平均", value: "\(Int(s.avg))°", color: .white)
+                    Divider().frame(height: 32).background(Color.white.opacity(0.15))
+                    Button {
+                        if let t = dataPoints.max(by: { $0.degrees < $1.degrees })?.time { onSeek?(t) }
+                    } label: {
+                        statCell(label: "最大", value: "\(Int(s.max))°", color: .blue, tappable: true)
+                    }.buttonStyle(.plain)
+                }
+            }
+
+            // Chart
+            Chart {
+                ForEach(dataPoints) { pt in
+                    LineMark(
+                        x: .value("時間", pt.time),
+                        y: .value("角度", pt.degrees),
+                        series: .value("s", pt.segment)
+                    )
+                    .foregroundStyle(Color.purple)
+                    .lineStyle(StrokeStyle(lineWidth: 2))
+
+                    AreaMark(
+                        x: .value("時間", pt.time),
+                        y: .value("角度", pt.degrees)
+                    )
+                    .foregroundStyle(
+                        LinearGradient(colors: [.purple.opacity(0.25), .clear],
+                                       startPoint: .top, endPoint: .bottom)
+                    )
+                }
+                let markerTime = dragTime ?? currentTime
+                RuleMark(x: .value("現在", markerTime))
+                    .foregroundStyle(isDragging ? Color.yellow.opacity(0.9) : Color.white.opacity(0.6))
+                    .lineStyle(StrokeStyle(lineWidth: isDragging ? 2 : 1.5, dash: [4, 3]))
+                    .annotation(position: .top, alignment: .center) {
+                        if let cur = dataPoints.min(by: { abs($0.time - markerTime) < abs($1.time - markerTime) }) {
+                            Text("\(Int(cur.degrees))°")
+                                .font(.system(size: 12, weight: .bold, design: .rounded))
+                                .foregroundColor(isDragging ? .yellow : .white)
+                                .padding(.horizontal, 6).padding(.vertical, 2)
+                                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 6))
+                        }
+                    }
+            }
+            .chartOverlay { proxy in
+                GeometryReader { geo in
+                    Rectangle().fill(.clear).contentShape(Rectangle())
+                        .gesture(
+                            DragGesture(minimumDistance: 0)
+                                .onChanged { value in
+                                    isDragging = true
+                                    let plotOriginX = geo[proxy.plotAreaFrame].origin.x
+                                    let x = value.location.x - plotOriginX
+                                    if let t: Double = proxy.value(atX: x) {
+                                        let clamped = max(0, min(t, dataPoints.last?.time ?? t))
+                                        dragTime = clamped
+                                        onSeek?(clamped)
+                                    }
+                                }
+                                .onEnded { _ in
+                                    isDragging = false
+                                    dragTime = nil
+                                }
+                        )
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: .automatic(desiredCount: 5)) { val in
+                    AxisValueLabel {
+                        if let t = val.as(Double.self) {
+                            Text(String(format: "%.1fs", t)).font(.caption2).foregroundColor(.white.opacity(0.5))
+                        }
+                    }
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(Color.white.opacity(0.1))
+                }
+            }
+            .chartYAxis {
+                AxisMarks(values: .automatic(desiredCount: 4)) { val in
+                    AxisValueLabel {
+                        if let d = val.as(Double.self) {
+                            Text("\(Int(d))°").font(.caption2).foregroundColor(.white.opacity(0.5))
+                        }
+                    }
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(Color.white.opacity(0.1))
+                }
+            }
+            .frame(maxHeight: .infinity)
+        }
+    }
+
+    func statCell(label: String, value: String, color: Color, tappable: Bool = false) -> some View {
+        VStack(spacing: 2) {
+            Text(label).font(.caption2).foregroundColor(.white.opacity(0.45))
+            Text(value)
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundColor(color)
+                .underline(tappable, color: color.opacity(0.4))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+        .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+// MARK: - Angle chart sheet (portrait)
+
+struct AngleChartSheet: View {
+    let angleName: String
+    let analyses: [FrameAnalysis]
+    let currentTime: Double
+    var onSeek: ((Double) -> Void)? = nil
+
+    var body: some View {
         NavigationStack {
             ZStack {
                 Color(white: 0.08).ignoresSafeArea()
-
-                VStack(spacing: 20) {
-                    // Stats row
-                    if let s = stats {
-                        HStack(spacing: 0) {
-                            statCell(label: "最小", value: "\(Int(s.min))°", color: .red)
-                            Divider().frame(height: 36).background(Color.white.opacity(0.15))
-                            statCell(label: "平均", value: "\(Int(s.avg))°", color: .white)
-                            Divider().frame(height: 36).background(Color.white.opacity(0.15))
-                            statCell(label: "最大", value: "\(Int(s.max))°", color: .blue)
-                        }
-                        .padding(.horizontal)
-                    }
-
-                    // Chart
-                    Chart {
-                        ForEach(dataPoints) { pt in
-                            LineMark(
-                                x: .value("時間", pt.time),
-                                y: .value("角度", pt.degrees)
-                            )
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [.purple, .blue],
-                                    startPoint: .leading, endPoint: .trailing
-                                )
-                            )
-                            .lineStyle(StrokeStyle(lineWidth: 2))
-
-                            AreaMark(
-                                x: .value("時間", pt.time),
-                                y: .value("角度", pt.degrees)
-                            )
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [.purple.opacity(0.3), .clear],
-                                    startPoint: .top, endPoint: .bottom
-                                )
-                            )
-                        }
-
-                        // Current time marker (or drag position)
-                        let markerTime = dragTime ?? currentTime
-                        RuleMark(x: .value("現在", markerTime))
-                            .foregroundStyle(isDragging ? Color.yellow.opacity(0.9) : Color.white.opacity(0.6))
-                            .lineStyle(StrokeStyle(lineWidth: isDragging ? 2 : 1.5, dash: [4, 3]))
-                            .annotation(position: .top, alignment: .center) {
-                                if let cur = dataPoints.min(by: {
-                                    abs($0.time - markerTime) < abs($1.time - markerTime)
-                                }) {
-                                    Text("\(Int(cur.degrees))°")
-                                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                                        .foregroundColor(isDragging ? .yellow : .white)
-                                        .padding(.horizontal, 6).padding(.vertical, 2)
-                                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 6))
-                                }
-                            }
-                    }
-                    .chartOverlay { proxy in
-                        GeometryReader { geo in
-                            Rectangle().fill(.clear).contentShape(Rectangle())
-                                .gesture(
-                                    DragGesture(minimumDistance: 4)
-                                        .onChanged { value in
-                                            isDragging = true
-                                            let plotOriginX = geo[proxy.plotAreaFrame].origin.x
-                                            let x = value.location.x - plotOriginX
-                                            if let t: Double = proxy.value(atX: x) {
-                                                let clamped = max(0, min(t, dataPoints.last?.time ?? t))
-                                                dragTime = clamped
-                                                onSeek?(clamped)
-                                            }
-                                        }
-                                        .onEnded { _ in
-                                            isDragging = false
-                                            dragTime = nil
-                                        }
-                                )
-                        }
-                    }
-                    .chartXAxis {
-                        AxisMarks(values: .automatic(desiredCount: 5)) { val in
-                            AxisValueLabel {
-                                if let t = val.as(Double.self) {
-                                    Text(String(format: "%.1fs", t))
-                                        .font(.caption2)
-                                        .foregroundColor(.white.opacity(0.5))
-                                }
-                            }
-                            AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                                .foregroundStyle(Color.white.opacity(0.1))
-                        }
-                    }
-                    .chartYAxis {
-                        AxisMarks(values: .automatic(desiredCount: 4)) { val in
-                            AxisValueLabel {
-                                if let d = val.as(Double.self) {
-                                    Text("\(Int(d))°")
-                                        .font(.caption2)
-                                        .foregroundColor(.white.opacity(0.5))
-                                }
-                            }
-                            AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                                .foregroundStyle(Color.white.opacity(0.1))
-                        }
-                    }
-                    .frame(height: 220)
-                    .padding(.horizontal)
-
-                    Spacer()
-                }
-                .padding(.top, 16)
+                AngleChartContent(
+                    angleName: angleName,
+                    analyses: analyses,
+                    currentTime: currentTime,
+                    onSeek: onSeek
+                )
+                .padding(16)
             }
             .navigationTitle(angleName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarColorScheme(.dark, for: .navigationBar)
         }
-    }
-
-    private func statCell(label: String, value: String, color: Color) -> some View {
-        VStack(spacing: 2) {
-            Text(label)
-                .font(.caption2)
-                .foregroundColor(.white.opacity(0.45))
-            Text(value)
-                .font(.system(size: 22, weight: .bold, design: .rounded))
-                .foregroundColor(color)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
-        .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
     }
 }
